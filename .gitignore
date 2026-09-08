@@ -1,0 +1,34 @@
+# Dependências
+**/node_modules/
+
+# Variáveis de ambiente / segredos
+.env
+**/.env
+.env.*
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Builds
+**/dist/
+**/build/
+
+# Prisma gerado
+backend/generated/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos auxiliares de ferramentas de IA/editor
+backend/.agents/
+backend/.claude/
+backend/.cursor/
+backend/.devin/
