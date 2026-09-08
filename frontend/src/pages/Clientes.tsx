@@ -1,3 +1,4 @@
+import { API_URL } from "../api";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -76,7 +77,7 @@ function Clientes() {
       setCarregando(true);
 
       const resposta = await fetch(
-        "http://localhost:3000/api/clientes",
+        `${API_URL}/api/clientes`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -154,8 +155,8 @@ function Clientes() {
       const editando = clienteEditandoId !== null;
 
       const url = editando
-        ? `http://localhost:3000/api/clientes/${clienteEditandoId}`
-        : "http://localhost:3000/api/clientes";
+        ? `${API_URL}/api/clientes/${clienteEditandoId}`
+        : `${API_URL}/api/clientes`;
 
       const resposta = await fetch(url, {
         method: editando ? "PUT" : "POST",
@@ -205,7 +206,7 @@ function Clientes() {
 
     try {
       const resposta = await fetch(
-        `http://localhost:3000/api/clientes/${cliente.id}`,
+        `${API_URL}/api/clientes/${cliente.id}`,
         {
           method: "DELETE",
 

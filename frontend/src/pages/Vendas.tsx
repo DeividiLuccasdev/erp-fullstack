@@ -1,3 +1,4 @@
+import { API_URL } from "../api";
 import { useEffect, useState } from "react";
 
 type Pedido = {
@@ -94,7 +95,7 @@ const [carregandoDetalhes, setCarregandoDetalhes] =
   async function carregarPedidos() {
     try {
       const resposta = await fetch(
-        "http://localhost:3000/api/pedidos",
+        `${API_URL}/api/pedidos`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -120,7 +121,7 @@ const [carregandoDetalhes, setCarregandoDetalhes] =
   async function carregarClientes() {
   try {
     const resposta = await fetch(
-      "http://localhost:3000/api/clientes",
+      `${API_URL}/api/clientes`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -143,7 +144,7 @@ const [carregandoDetalhes, setCarregandoDetalhes] =
 async function carregarProdutos() {
   try {
     const resposta = await fetch(
-      "http://localhost:3000/api/produtos",
+      `${API_URL}/api/produtos`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -176,7 +177,7 @@ async function criarVenda() {
 
   try {
     const resposta = await fetch(
-      "http://localhost:3000/api/pedidos",
+      `${API_URL}/api/pedidos`,
       {
         method: "POST",
         headers: {
@@ -240,7 +241,7 @@ async function adicionarItem() {
 
   try {
     const resposta = await fetch(
-      `http://localhost:3000/api/pedidos/${pedidoSelecionado}/itens`,
+      `${API_URL}/api/pedidos/${pedidoSelecionado}/itens`,
       {
         method: "POST",
         headers: {
@@ -278,7 +279,7 @@ async function finalizarVenda(pedidoId: string) {
 
   try {
     const resposta = await fetch(
-      `http://localhost:3000/api/pedidos/${pedidoId}/finalizar`,
+      `${API_URL}/api/pedidos/${pedidoId}/finalizar`,
       {
         method: "POST",
         headers: {
@@ -308,7 +309,7 @@ async function cancelarVenda(pedidoId: string) {
 
   try {
     const resposta = await fetch(
-      `http://localhost:3000/api/pedidos/${pedidoId}/cancelar`,
+      `${API_URL}/api/pedidos/${pedidoId}/cancelar`,
       {
         method: "POST",
         headers: {
@@ -338,7 +339,7 @@ async function verDetalhes(pedidoId: string) {
 
   try {
     const resposta = await fetch(
-      `http://localhost:3000/api/pedidos/${pedidoId}`,
+      `${API_URL}/api/pedidos/${pedidoId}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,

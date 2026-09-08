@@ -1,3 +1,4 @@
+import { API_URL } from "../api";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -55,13 +56,13 @@ function Estoque() {
 
     try {
       const [resProdutos, resMovimentacoes] = await Promise.all([
-        fetch("http://localhost:3000/api/produtos", {
+        fetch(`${API_URL}/api/produtos`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }),
 
-        fetch("http://localhost:3000/api/estoque/movimentacoes", {
+        fetch(`${API_URL}/api/estoque/movimentacoes`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -102,7 +103,7 @@ function Estoque() {
 
     try {
       const resposta = await fetch(
-        `http://localhost:3000/api/estoque/${tipo}`,
+        `${API_URL}/api/estoque/${tipo}`,
         {
           method: "POST",
           headers: {

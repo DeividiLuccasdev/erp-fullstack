@@ -1,3 +1,4 @@
+import { API_URL } from "../api";
 import { useEffect, useState } from "react";
 
 type Produto = {
@@ -22,7 +23,7 @@ function Produtos() {
     async function carregarProdutos() {
       try {
         const resposta = await fetch(
-          "http://localhost:3000/api/produtos",
+          `${API_URL}/api/produtos`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

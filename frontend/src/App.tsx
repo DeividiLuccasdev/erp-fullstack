@@ -1,3 +1,4 @@
+import { API_URL } from "./api";
 import { useEffect, useState } from "react";
 
 import {
@@ -93,7 +94,7 @@ useEffect(() => {
 
     try {
       const resposta = await fetch(
-        "http://localhost:3000/api/dashboard",
+        `${API_URL}/api/dashboard`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -122,7 +123,7 @@ useEffect(() => {
 
       try {
         const resposta = await fetch(
-          "http://localhost:3000/api/dashboard",
+          `${API_URL}/api/auth/login`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -153,7 +154,7 @@ useEffect(() => {
 
     try {
       const resposta = await fetch(
-        "http://localhost:3000/api/auth/login",
+        `${API_URL}/api/auth/login`,
         {
           method: "POST",
           headers: {
