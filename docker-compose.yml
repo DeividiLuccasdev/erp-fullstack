@@ -1,0 +1,20 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: erp-backend-container
+    env_file:
+      - ./backend/.env
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: erp-frontend-container
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

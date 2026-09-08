@@ -528,6 +528,151 @@ async function verDetalhes(pedidoId: string) {
     </div>
   </div>
 )}
+{carregandoDetalhes && (
+  <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-slate-400">
+    Carregando detalhes...
+  </div>
+)}
+
+{detalhesPedido && !carregandoDetalhes && (
+  <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+
+    <div className="flex justify-between items-center mb-6">
+
+      <div>
+        <h2 className="text-xl font-semibold text-white">
+          Detalhes da Venda
+        </h2>
+
+        <p className="text-slate-400 text-sm mt-1">
+          Pedido {detalhesPedido.id.substring(0, 8)}
+        </p>
+      </div>
+
+      <button
+        onClick={() => setDetalhesPedido(null)}
+        className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg"
+      >
+        Fechar
+      </button>
+
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+
+      <div>
+        <p className="text-slate-500 text-sm">
+          Cliente
+        </p>
+
+        <p className="text-white">
+          {detalhesPedido.cliente?.nome || "Sem cliente"}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-slate-500 text-sm">
+          Vendedor
+        </p>
+
+        <p className="text-white">
+          {detalhesPedido.usuario.nome}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-slate-500 text-sm">
+          Status
+        </p>
+
+        <p className={corStatus(detalhesPedido.status)}>
+          {detalhesPedido.status}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-slate-500 text-sm">
+          Total
+        </p>
+
+        <p className="text-green-400 font-semibold">
+          {Number(detalhesPedido.total).toLocaleString(
+            "pt-BR",
+            {
+              style: "currency",
+              currency: "BRL",
+            }
+          )}
+        </p>
+      </div>
+
+    </div>
+
+    <div className="overflow-hidden rounded-lg border border-slate-800">
+
+      <table className="w-full">
+
+        <thead className="bg-slate-800">
+          <tr className="text-left text-slate-300">
+            <th className="p-4">Produto</th>
+            <th className="p-4">Código</th>
+            <th className="p-4">Quantidade</th>
+            <th className="p-4">Preço</th>
+            <th className="p-4">Subtotal</th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          {detalhesPedido.itens.map((item) => (
+            <tr
+              key={item.id}
+              className="border-t border-slate-800 text-slate-200"
+            >
+
+              <td className="p-4">
+                {item.produto.nome}
+              </td>
+
+              <td className="p-4">
+                {item.produto.codigo}
+              </td>
+
+              <td className="p-4">
+                {item.quantidade}
+              </td>
+
+              <td className="p-4">
+                {Number(item.precoUnitario).toLocaleString(
+                  "pt-BR",
+                  {
+                    style: "currency",
+                    currency: "BRL",
+                  }
+                )}
+              </td>
+
+              <td className="p-4 font-semibold">
+                {Number(item.subtotal).toLocaleString(
+                  "pt-BR",
+                  {
+                    style: "currency",
+                    currency: "BRL",
+                  }
+                )}
+              </td>
+
+            </tr>
+          ))}
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+)}
 
       {!carregando && !erro && (
 
