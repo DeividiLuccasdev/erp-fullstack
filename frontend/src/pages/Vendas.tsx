@@ -488,14 +488,14 @@ async function verDetalhes(pedidoId: string) {
             Selecione um produto
           </option>
 
-          {produtos.map((produto) => (
-            <option
-              key={produto.id}
-              value={produto.id}
-            >
-              {produto.nome} - Estoque: {produto.estoque}
-            </option>
-          ))}
+              {produtos.map((produto) => ( 
+          <option 
+            key={produto.id} 
+            value={produto.id} 
+          > 
+            {produto.nome}
+          </option> 
+        ))}
 
         </select>
       </div>
