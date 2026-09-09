@@ -17,6 +17,43 @@ type Produto = {
   ativo: boolean;
 };
 
+const formatadorMoeda = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+function formatarMoedaDigitacao(valor: string) {
+  const somenteNumeros = valor.replace(/\D/g, "");
+
+  if (!somenteNumeros) {
+    return "";
+  }
+
+  const numero = Number(somenteNumeros) / 100;
+
+  return formatadorMoeda.format(numero);
+}
+
+function numeroParaMoeda(valor: number | string) {
+  const numero = Number(valor);
+
+  if (Number.isNaN(numero)) {
+    return "";
+  }
+
+  return formatadorMoeda.format(numero);
+}
+
+function moedaParaNumero(valor: string) {
+  const valorLimpo = valor
+    .replace("R$", "")
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .trim();
+
+  return Number(valorLimpo);
+}
+
 function Produtos() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -107,7 +144,7 @@ function Produtos() {
     setNome(produto.nome);
     setCodigo(produto.codigo);
     setDescricao(produto.descricao ?? "");
-    setPreco(String(produto.preco).replace(".", ","));
+    setPreco(numeroParaMoeda(produto.preco));
     setEstoqueMinimo(String(produto.estoqueMinimo));
     setErro("");
     setMensagem("");
@@ -142,9 +179,7 @@ function Produtos() {
       return;
     }
 
-    const precoNumero = Number(
-      preco.replace(",", ".")
-    );
+     const precoNumero = moedaParaNumero(preco);
 
     const estoqueMinimoNumero = Number(estoqueMinimo);
 
@@ -456,10 +491,12 @@ function Produtos() {
 
                   <input
                     type="text"
-                    inputMode="decimal"
+                    inputMode="numeric"
                     value={preco}
-                    onChange={(event) => setPreco(event.target.value)}
-                    placeholder="89,90"
+                    onChange={(event) =>
+                      setPreco(formatarMoedaDigitacao(event.target.value))
+                    }
+                    placeholder="R$ 0,00"
                     className="w-full bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-lg outline-none focus:border-cyan-500"
                   />
                 </div>
