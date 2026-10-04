@@ -329,6 +329,7 @@ function Estoque() {
           </h2>
         </div>
 
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-800">
             <tr className="text-left text-slate-300">
@@ -383,6 +384,7 @@ function Estoque() {
             })}
           </tbody>
         </table>
+        </div>
 
       </div>
 
@@ -396,6 +398,7 @@ function Estoque() {
           </h2>
         </div>
 
+        <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-slate-800">
             <tr className="text-left text-slate-300">
@@ -460,6 +463,7 @@ function Estoque() {
             ))}
           </tbody>
         </table>
+        </div>
 
       </div>
 
