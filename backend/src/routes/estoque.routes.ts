@@ -7,6 +7,8 @@ import { prisma } from "../config/prisma.js";
 
 const router = Router();
 
+class EstoqueInsuficiente extends Error {}
+
 // ========================================
 // ENTRADA DE ESTOQUE
 // POST /api/estoque/entrada
@@ -159,14 +161,29 @@ router.post("/saida", autenticarToken, async (req, res) => {
     }
 
     const resultado = await prisma.$transaction(async (tx) => {
-      const produtoAtualizado = await tx.produto.update({
+      // Baixa só se ainda houver saldo: a conferência acima não basta
+      // quando duas saídas acontecem ao mesmo tempo
+      const baixa = await tx.produto.updateMany({
         where: {
           id: produtoId,
+          estoque: {
+            gte: quantidadeNumero,
+          },
         },
         data: {
           estoque: {
             decrement: quantidadeNumero,
           },
+        },
+      });
+
+      if (baixa.count === 0) {
+        throw new EstoqueInsuficiente();
+      }
+
+      const produtoAtualizado = await tx.produto.findUniqueOrThrow({
+        where: {
+          id: produtoId,
         },
       });
 
@@ -193,6 +210,19 @@ router.post("/saida", autenticarToken, async (req, res) => {
     });
 
   } catch (erro) {
+    if (erro instanceof EstoqueInsuficiente) {
+      const atual = await prisma.produto.findUnique({
+        where: {
+          id: req.body.produtoId,
+        },
+      });
+
+      return res.status(409).json({
+        erro: "Estoque insuficiente.",
+        estoqueAtual: atual?.estoque ?? 0,
+      });
+    }
+
     console.error(erro);
 
     return res.status(500).json({

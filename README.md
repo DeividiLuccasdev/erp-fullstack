@@ -191,7 +191,7 @@ POST /api/auth/login
 ### Usuários
 
 ```http
-POST /api/usuarios
+POST /api/usuarios   (somente ADMIN)
 GET  /api/perfil
 GET  /api/admin/teste
 ```
@@ -256,6 +256,8 @@ O projeto utiliza:
 - `.env` protegido pelo `.gitignore`
 - Validações no backend antes de operações críticas
 - Transações de banco em movimentações de estoque e vendas
+- Cadastro de usuários restrito a administradores
+- Baixa de estoque e mudança de status dos pedidos protegidas contra requisições simultâneas (o estoque nunca fica negativo e um pedido não é finalizado duas vezes)
 
 Nenhuma credencial sensível é armazenada diretamente no repositório.
 
@@ -305,6 +307,14 @@ npm install
 npx prisma generate
 npm run dev
 ```
+
+Crie o primeiro administrador (a senha é pedida no terminal):
+
+```bash
+npm run criar-admin -- --email voce@exemplo.com --nome "Seu Nome"
+```
+
+O mesmo comando redefine a senha e reativa um usuário que já existe, promovendo-o a `ADMIN`.
 
 Backend:
 

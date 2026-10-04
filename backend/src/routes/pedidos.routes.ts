@@ -7,6 +7,10 @@ import { prisma } from "../config/prisma.js";
 
 const router = Router();
 
+// Lançado dentro das transações quando o pedido já não está ABERTO
+// (por exemplo, finalizado por outra requisição ao mesmo tempo).
+class PedidoNaoAberto extends Error {}
+
 // ========================================
 // CRIAR PEDIDO
 // POST /api/pedidos
@@ -156,6 +160,23 @@ router.post("/:id/itens", autenticarToken, async (req, res) => {
     const subtotal = precoUnitario * quantidadeNumero;
 
     const resultado = await prisma.$transaction(async (tx) => {
+      // Soma o total só se o pedido ainda estiver aberto
+      const atualizacao = await tx.pedido.updateMany({
+        where: {
+          id: pedidoId,
+          status: "ABERTO",
+        },
+        data: {
+          total: {
+            increment: subtotal,
+          },
+        },
+      });
+
+      if (atualizacao.count === 0) {
+        throw new PedidoNaoAberto();
+      }
+
       const item = await tx.itemPedido.create({
         data: {
           pedidoId,
@@ -166,14 +187,9 @@ router.post("/:id/itens", autenticarToken, async (req, res) => {
         },
       });
 
-      const pedidoAtualizado = await tx.pedido.update({
+      const pedidoAtualizado = await tx.pedido.findUniqueOrThrow({
         where: {
           id: pedidoId,
-        },
-        data: {
-          total: {
-            increment: subtotal,
-          },
         },
       });
 
@@ -190,6 +206,12 @@ router.post("/:id/itens", autenticarToken, async (req, res) => {
     });
 
   } catch (erro) {
+    if (erro instanceof PedidoNaoAberto) {
+      return res.status(409).json({
+        erro: "Só é possível adicionar itens a pedidos abertos.",
+      });
+    }
+
     console.error(erro);
 
     return res.status(500).json({
@@ -259,6 +281,25 @@ router.post(
       }
 
       const resultado = await prisma.$transaction(async (tx) => {
+        // Muda o status primeiro e só se ainda estiver ABERTO: se o pedido
+        // for finalizado duas vezes ao mesmo tempo (duplo clique), a segunda
+        // transação não encontra o pedido aberto e o estoque não baixa em dobro.
+        const mudanca = await tx.pedido.updateMany({
+          where: {
+            id: pedidoId,
+            status: "ABERTO",
+          },
+
+          data: {
+            status: "FINALIZADO",
+            finalizadoEm: new Date(),
+          },
+        });
+
+        if (mudanca.count === 0) {
+          throw new PedidoNaoAberto();
+        }
+
         for (const item of pedido.itens) {
           const atualizacao = await tx.produto.updateMany({
             where: {
@@ -292,18 +333,11 @@ router.post(
           });
         }
 
-        const pedidoFinalizado = await tx.pedido.update({
+        return tx.pedido.findUniqueOrThrow({
           where: {
             id: pedidoId,
           },
-
-          data: {
-            status: "FINALIZADO",
-            finalizadoEm: new Date(),
-          },
         });
-
-        return pedidoFinalizado;
       });
 
       return res.status(200).json({
@@ -312,6 +346,12 @@ router.post(
       });
 
     } catch (erro) {
+      if (erro instanceof PedidoNaoAberto) {
+        return res.status(409).json({
+          erro: "Este pedido não está aberto.",
+        });
+      }
+
       if (
         erro instanceof Error &&
         erro.message.startsWith("ESTOQUE_INSUFICIENTE:")
@@ -491,14 +531,29 @@ router.post(
         });
       }
 
-      const pedidoCancelado = await prisma.pedido.update({
+      // Só cancela se ainda estiver ABERTO (evita cancelar um pedido
+      // que outra requisição acabou de finalizar)
+      const mudanca = await prisma.pedido.updateMany({
         where: {
           id: idParam,
+          status: "ABERTO",
         },
 
         data: {
           status: "CANCELADO",
           canceladoEm: new Date(),
+        },
+      });
+
+      if (mudanca.count === 0) {
+        return res.status(409).json({
+          erro: "Este pedido não está mais aberto.",
+        });
+      }
+
+      const pedidoCancelado = await prisma.pedido.findUniqueOrThrow({
+        where: {
+          id: idParam,
         },
       });
 
