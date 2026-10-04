@@ -12,6 +12,8 @@ https://erp-fullstack-frontend.onrender.com
 **API:**  
 https://erp-fullstack-api-deividi.onrender.com
 
+> ⏳ **O primeiro acesso pode demorar de 30 a 60 segundos.** A aplicação usa o plano gratuito do Render, que "adormece" o servidor após 15 minutos sem uso. Depois que ele acorda, tudo responde normalmente.
+
 ## 🚀 Tecnologias
 
 ### Frontend
