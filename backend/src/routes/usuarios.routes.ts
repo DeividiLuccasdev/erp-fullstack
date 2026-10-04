@@ -12,12 +12,20 @@ import { prisma } from "../config/prisma.js";
 
 const router = Router();
 
+const PERFIS_VALIDOS = ["ADMIN", "OPERADOR"] as const;
+const TAMANHO_MINIMO_SENHA = 6;
+
 // ========================================
-// CADASTRO DE USUÁRIO
+// CADASTRO DE USUÁRIO (somente ADMIN)
 // POST /api/usuarios
+// O primeiro administrador é criado com: npm run criar-admin
 // ========================================
 
-router.post("/usuarios", async (req, res) => {
+router.post(
+  "/usuarios",
+  autenticarToken,
+  autorizarPerfil("ADMIN"),
+  async (req, res) => {
   try {
     const {
       nome,
@@ -29,6 +37,20 @@ router.post("/usuarios", async (req, res) => {
     if (!nome || !email || !senha) {
       return res.status(400).json({
         erro: "Nome, e-mail e senha são obrigatórios."
+      });
+    }
+
+    if (String(senha).length < TAMANHO_MINIMO_SENHA) {
+      return res.status(400).json({
+        erro: `A senha deve ter pelo menos ${TAMANHO_MINIMO_SENHA} caracteres.`
+      });
+    }
+
+    const perfilUsuario = perfil ?? "OPERADOR";
+
+    if (!PERFIS_VALIDOS.includes(perfilUsuario)) {
+      return res.status(400).json({
+        erro: "Perfil inválido. Use ADMIN ou OPERADOR."
       });
     }
 
@@ -51,7 +73,7 @@ router.post("/usuarios", async (req, res) => {
         nome,
         email,
         senhaHash,
-        perfil: perfil || "OPERADOR"
+        perfil: perfilUsuario
       },
       select: {
         id: true,
@@ -72,7 +94,8 @@ router.post("/usuarios", async (req, res) => {
       erro: "Erro interno ao cadastrar usuário."
     });
   }
-});
+  }
+);
 
 // ========================================
 // PERFIL DO USUÁRIO LOGADO

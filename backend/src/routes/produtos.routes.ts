@@ -9,6 +9,39 @@ import { prisma } from "../config/prisma.js";
 
 const router = Router();
 
+// Valida os campos numéricos do produto. Retorna a mensagem de erro,
+// ou null se estiver tudo certo. Campos não informados são ignorados.
+function validarNumeros(dados: {
+  preco?: unknown;
+  estoque?: unknown;
+  estoqueMinimo?: unknown;
+}): string | null {
+  if (dados.preco !== undefined) {
+    const preco = Number(dados.preco);
+
+    if (!Number.isFinite(preco) || preco < 0) {
+      return "O preço deve ser um número maior ou igual a zero.";
+    }
+  }
+
+  for (const [campo, nome] of [
+    ["estoque", "O estoque"],
+    ["estoqueMinimo", "O estoque mínimo"],
+  ] as const) {
+    const valor = dados[campo];
+
+    if (valor !== undefined && valor !== null) {
+      const numero = Number(valor);
+
+      if (!Number.isInteger(numero) || numero < 0) {
+        return `${nome} deve ser um número inteiro maior ou igual a zero.`;
+      }
+    }
+  }
+
+  return null;
+}
+
 // CADASTRAR PRODUTO
 router.post("/", autenticarToken, async (req, res) => {
   try {
@@ -27,15 +60,11 @@ router.post("/", autenticarToken, async (req, res) => {
       });
     }
 
-    if (Number(preco) < 0) {
-      return res.status(400).json({
-        erro: "O preço não pode ser negativo.",
-      });
-    }
+    const erroNumeros = validarNumeros({ preco, estoque, estoqueMinimo });
 
-    if (estoque !== undefined && Number(estoque) < 0) {
+    if (erroNumeros) {
       return res.status(400).json({
-        erro: "O estoque não pode ser negativo.",
+        erro: erroNumeros,
       });
     }
 
@@ -151,6 +180,14 @@ router.put("/:id", autenticarToken, async (req, res) => {
     if (!nome || !codigo || preco === undefined) {
       return res.status(400).json({
         erro: "Nome, código e preço são obrigatórios.",
+      });
+    }
+
+    const erroNumeros = validarNumeros({ preco, estoque, estoqueMinimo });
+
+    if (erroNumeros) {
+      return res.status(400).json({
+        erro: erroNumeros,
       });
     }
 
