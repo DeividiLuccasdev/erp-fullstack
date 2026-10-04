@@ -29,6 +29,32 @@ app.get("/", (req, res) => {
   });
 });
 
+app.use((req, res) => {
+  res.status(404).json({
+    erro: "Rota não encontrada."
+  });
+});
+
+// JSON malformado e erros não tratados respondem em JSON, como o resto da API
+app.use((
+  erro: Error & { status?: number; type?: string },
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) => {
+  if (erro.type === "entity.parse.failed") {
+    return res.status(400).json({
+      erro: "JSON inválido no corpo da requisição."
+    });
+  }
+
+  console.error(erro);
+
+  return res.status(erro.status ?? 500).json({
+    erro: "Erro interno do servidor."
+  });
+});
+
 const PORT = Number(process.env.PORT) || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {

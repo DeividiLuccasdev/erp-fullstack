@@ -35,7 +35,7 @@ router.post("/", autenticarToken, async (req, res) => {
         },
       });
 
-      if (!cliente) {
+      if (!cliente || !cliente.ativo) {
         return res.status(404).json({
           erro: "Cliente não encontrado.",
         });

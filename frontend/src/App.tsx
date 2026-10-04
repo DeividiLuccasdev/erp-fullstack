@@ -67,6 +67,34 @@ function Card({ titulo, valor, icone }: CardProps) {
   );
 }
 
+// Devolve o token salvo só se ele ainda não expirou; um token vencido
+// é descartado para que a tela de login apareça
+function tokenValido(token: string | null) {
+  if (!token) return null;
+
+  try {
+    const payload = JSON.parse(
+      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+    );
+
+    if (typeof payload.exp === "number" && payload.exp * 1000 > Date.now()) {
+      return token;
+    }
+  } catch {
+    // token corrompido: trata como sessão encerrada
+  }
+
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuario");
+  return null;
+}
+
+function sair() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuario");
+  window.location.reload();
+}
+
 function App() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -77,7 +105,7 @@ function App() {
   const [dashboard, setDashboard] =
     useState<DashboardDados | null>(null);
 
-  const token = localStorage.getItem("token");
+  const token = tokenValido(localStorage.getItem("token"));
   const usuarioSalvo = localStorage.getItem("usuario");
 
   const usuario = usuarioSalvo
@@ -102,6 +130,11 @@ useEffect(() => {
         }
       );
 
+      if (resposta.status === 401) {
+        sair();
+        return;
+      }
+
       if (!resposta.ok) {
         throw new Error();
       }
@@ -116,35 +149,6 @@ useEffect(() => {
 
   carregarDashboard();
 }, [token, paginaAtual]);
-
-  useEffect(() => {
-    async function carregarDashboard() {
-      if (!token) return;
-
-      try {
-        const resposta = await fetch(
-          `${API_URL}/api/auth/login`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!resposta.ok) {
-          throw new Error();
-        }
-
-        const dados = await resposta.json();
-        setDashboard(dados);
-
-      } catch {
-        console.error("Erro ao carregar dashboard.");
-      }
-    }
-
-    carregarDashboard();
-  }, [token]);
 
   async function fazerLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -281,11 +285,7 @@ useEffect(() => {
           </p>
 
       <button
-        onClick={() => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("usuario");
-        window.location.reload();
-        }}
+        onClick={sair}
         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 py-2.5 rounded-lg transition"
         >
         <LogOut size={18} />
