@@ -4,10 +4,15 @@ import {
   autenticarToken,
   autorizarPerfil,
 } from "../middlewares/auth.js";
+import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
 
 const router = Router();
+
+function podeAlterarAtivo(req: unknown) {
+  return (req as RequestAutenticada).usuario?.perfil === "ADMIN";
+}
 
 // ========================================
 // CADASTRAR CLIENTE
@@ -40,7 +45,9 @@ router.post("/", autenticarToken, async (req, res) => {
 
       if (clienteExistente) {
         return res.status(409).json({
-          erro: "Já existe um cliente com este CPF.",
+          erro: clienteExistente.excluidoEm
+            ? "Este CPF pertence a um cliente excluído."
+            : "Já existe um cliente com este CPF.",
         });
       }
     }
@@ -207,7 +214,10 @@ router.put("/:id", autenticarToken, async (req, res) => {
           email: email || null,
           telefone: telefone || null,
           cidade: cidade || null,
-          ativo: ativo ?? clienteExistente.ativo,
+          // Ativar ou desativar equivale a excluir, que é só do ADMIN
+          ativo: podeAlterarAtivo(req) && typeof ativo === "boolean"
+            ? ativo
+            : clienteExistente.ativo,
         },
       });
 

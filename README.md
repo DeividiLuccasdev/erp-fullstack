@@ -195,7 +195,6 @@ POST /api/auth/login
 ```http
 POST /api/usuarios   (somente ADMIN)
 GET  /api/perfil
-GET  /api/admin/teste
 ```
 
 ### Clientes
@@ -260,6 +259,9 @@ O projeto utiliza:
 - Transações de banco em movimentações de estoque e vendas
 - Cadastro de usuários restrito a administradores
 - Baixa de estoque e mudança de status dos pedidos protegidas contra requisições simultâneas (o estoque nunca fica negativo e um pedido não é finalizado duas vezes)
+- Usuário desativado ou com perfil alterado perde o acesso na hora, sem esperar o token expirar
+- Todo saldo de estoque fica registrado nas movimentações (o estoque inicial também); a edição do produto não altera o saldo
+- Excluir e reativar clientes ou produtos é exclusivo do ADMIN; produto com histórico é desativado em vez de apagado
 
 Nenhuma credencial sensível é armazenada diretamente no repositório.
 

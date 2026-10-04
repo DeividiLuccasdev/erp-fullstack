@@ -143,20 +143,4 @@ router.get("/perfil", autenticarToken, async (req, res) => {
   }
 });
 
-// ========================================
-// TESTE DE ACESSO ADMIN
-// GET /api/admin/teste
-// ========================================
-
-router.get(
-  "/admin/teste",
-  autenticarToken,
-  autorizarPerfil("ADMIN"),
-  (req, res) => {
-    res.json({
-      mensagem: "Acesso ADMIN autorizado!"
-    });
-  }
-);
-
 export default router;

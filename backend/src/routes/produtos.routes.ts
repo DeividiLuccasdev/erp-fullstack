@@ -4,6 +4,7 @@ import {
   autenticarToken,
   autorizarPerfil,
 } from "../middlewares/auth.js";
+import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
 
@@ -78,15 +79,34 @@ router.post("/", autenticarToken, async (req, res) => {
       });
     }
 
-    const produto = await prisma.produto.create({
-      data: {
-        nome,
-        codigo,
-        descricao: descricao || null,
-        preco: Number(preco),
-        estoque: Number(estoque ?? 0),
-        estoqueMinimo: Number(estoqueMinimo ?? 0),
-      },
+    const estoqueInicial = Number(estoque ?? 0);
+
+    const produto = await prisma.$transaction(async (tx) => {
+      const criado = await tx.produto.create({
+        data: {
+          nome,
+          codigo,
+          descricao: descricao || null,
+          preco: Number(preco),
+          estoque: estoqueInicial,
+          estoqueMinimo: Number(estoqueMinimo ?? 0),
+        },
+      });
+
+      // Saldo inicial também entra no histórico de movimentações
+      if (estoqueInicial > 0) {
+        await tx.movimentacaoEstoque.create({
+          data: {
+            produtoId: criado.id,
+            usuarioId: (req as RequestAutenticada).usuario!.usuarioId,
+            tipo: "ENTRADA",
+            quantidade: estoqueInicial,
+            observacao: "Estoque inicial",
+          },
+        });
+      }
+
+      return criado;
     });
 
     return res.status(201).json(produto);
@@ -172,7 +192,6 @@ router.put("/:id", autenticarToken, async (req, res) => {
       codigo,
       descricao,
       preco,
-      estoque,
       estoqueMinimo,
       ativo,
     } = req.body;
@@ -183,7 +202,7 @@ router.put("/:id", autenticarToken, async (req, res) => {
       });
     }
 
-    const erroNumeros = validarNumeros({ preco, estoque, estoqueMinimo });
+    const erroNumeros = validarNumeros({ preco, estoqueMinimo });
 
     if (erroNumeros) {
       return res.status(400).json({
@@ -223,11 +242,16 @@ router.put("/:id", autenticarToken, async (req, res) => {
         codigo,
         descricao: descricao || null,
         preco: Number(preco),
-        estoque: Number(estoque ?? produtoExistente.estoque),
+        // O saldo só muda por entrada/saída de estoque ou venda, para
+        // que toda alteração fique registrada nas movimentações
         estoqueMinimo: Number(
           estoqueMinimo ?? produtoExistente.estoqueMinimo
         ),
-        ativo: ativo ?? produtoExistente.ativo,
+        ativo:
+          (req as RequestAutenticada).usuario?.perfil === "ADMIN" &&
+          typeof ativo === "boolean"
+            ? ativo
+            : produtoExistente.ativo,
       },
     });
 
@@ -266,6 +290,29 @@ router.delete(
       if (!produto) {
         return res.status(404).json({
           erro: "Produto não encontrado.",
+        });
+      }
+
+      const [movimentacoes, itens] = await Promise.all([
+        prisma.movimentacaoEstoque.count({
+          where: { produtoId: idParam },
+        }),
+        prisma.itemPedido.count({
+          where: { produtoId: idParam },
+        }),
+      ]);
+
+      // Produto com histórico não pode sumir: as movimentações e os
+      // pedidos apontam para ele. Nesse caso ele só é desativado.
+      if (movimentacoes > 0 || itens > 0) {
+        await prisma.produto.update({
+          where: { id: idParam },
+          data: { ativo: false },
+        });
+
+        return res.status(200).json({
+          mensagem:
+            "O produto tem histórico de estoque ou vendas e foi desativado.",
         });
       }
 
