@@ -609,7 +609,7 @@ async function verDetalhes(pedidoId: string) {
 
     </div>
 
-    <div className="overflow-hidden rounded-lg border border-slate-800">
+    <div className="overflow-x-auto rounded-lg border border-slate-800">
 
       <table className="w-full">
 
@@ -677,7 +677,7 @@ async function verDetalhes(pedidoId: string) {
 
       {!carregando && !erro && (
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-x-auto">
 
           <table className="w-full">
 

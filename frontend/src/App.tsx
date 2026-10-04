@@ -16,6 +16,8 @@ import {
   ShoppingBag,
   XCircle,
   TriangleAlert,
+  Menu,
+  X,
 } from "lucide-react";
 
 import Clientes from "./pages/Clientes";
@@ -57,7 +59,7 @@ function Card({ titulo, valor, icone }: CardProps) {
           </h2>
         </div>
 
-        <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-400">
+        <div className="w-12 h-12 shrink-0 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-400">
           {icone}
         </div>
 
@@ -66,6 +68,14 @@ function Card({ titulo, valor, icone }: CardProps) {
     </div>
   );
 }
+
+const PAGINAS = [
+  { id: "dashboard", titulo: "Dashboard", Icone: LayoutDashboard },
+  { id: "clientes", titulo: "Clientes", Icone: Users },
+  { id: "produtos", titulo: "Produtos", Icone: Package },
+  { id: "estoque", titulo: "Estoque", Icone: Boxes },
+  { id: "vendas", titulo: "Vendas", Icone: ShoppingCart },
+];
 
 // Devolve o token salvo só se ele ainda não expirou; um token vencido
 // é descartado para que a tela de login apareça
@@ -113,6 +123,7 @@ function App() {
     : null;
 
   const [paginaAtual, setPaginaAtual] = useState("dashboard");
+  const [menuAberto, setMenuAberto] = useState(false);
 
 useEffect(() => {
   async function carregarDashboard() {
@@ -195,86 +206,77 @@ useEffect(() => {
 
  if (token && usuario) {
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex">
+    <div className="min-h-screen bg-slate-950 text-white md:flex">
 
-      {/* MENU LATERAL */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 min-h-screen p-5 flex flex-col">
+      {/* BARRA SUPERIOR (CELULAR) */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-30 h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
+        <span className="font-bold">ERP Full-Stack</span>
 
-        <div className="mb-10">
-          <h1 className="text-2xl font-bold">
-            ERP Full-Stack
-          </h1>
+        <button
+          onClick={() => setMenuAberto(true)}
+          aria-label="Abrir menu"
+          className="p-2 -mr-2 rounded-lg text-slate-300 hover:bg-slate-800"
+        >
+          <Menu size={22} />
+        </button>
+      </header>
 
-          <p className="text-slate-500 text-sm mt-1">
-            Gestão Comercial
-          </p>
+      {/* Fundo escuro atrás do menu aberto no celular */}
+      {menuAberto && (
+        <div
+          onClick={() => setMenuAberto(false)}
+          className="md:hidden fixed inset-0 z-40 bg-black/60"
+        />
+      )}
+
+      {/* MENU LATERAL: gaveta no celular, fixo a partir do tablet */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 p-5 flex flex-col overflow-y-auto transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0 ${
+          menuAberto ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+
+        <div className="mb-10 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">
+              ERP Full-Stack
+            </h1>
+
+            <p className="text-slate-500 text-sm mt-1">
+              Gestão Comercial
+            </p>
+          </div>
+
+          <button
+            onClick={() => setMenuAberto(false)}
+            aria-label="Fechar menu"
+            className="md:hidden p-1 rounded-lg text-slate-400 hover:bg-slate-800"
+          >
+            <X size={22} />
+          </button>
         </div>
 
-       <nav className="space-y-2 flex-1">
+        <nav className="space-y-2 flex-1">
+          {PAGINAS.map(({ id, titulo, Icone }) => (
+            <button
+              key={id}
+              onClick={() => {
+                setPaginaAtual(id);
+                setMenuAberto(false);
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                paginaAtual === id
+                  ? "bg-cyan-500 text-slate-950 font-semibold"
+                  : "text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              <Icone size={20} />
+              {titulo}
+            </button>
+          ))}
+        </nav>
 
-  <button
-    onClick={() => setPaginaAtual("dashboard")}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-      paginaAtual === "dashboard"
-        ? "bg-cyan-500 text-slate-950 font-semibold"
-        : "text-slate-300 hover:bg-slate-800"
-    }`}
-  >
-    <LayoutDashboard size={20} />
-    Dashboard
-  </button>
-
-  <button
-    onClick={() => setPaginaAtual("clientes")}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-      paginaAtual === "clientes"
-        ? "bg-cyan-500 text-slate-950 font-semibold"
-        : "text-slate-300 hover:bg-slate-800"
-    }`}
-  >
-    <Users size={20} />
-    Clientes
-  </button>
-
-  <button
-    onClick={() => setPaginaAtual("produtos")}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-      paginaAtual === "produtos"
-        ? "bg-cyan-500 text-slate-950 font-semibold"
-        : "text-slate-300 hover:bg-slate-800"
-    }`}
-  >
-    <Package size={20} />
-    Produtos
-  </button>
-
-  <button
-    onClick={() => setPaginaAtual("estoque")}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-      paginaAtual === "estoque"
-        ? "bg-cyan-500 text-slate-950 font-semibold"
-        : "text-slate-300 hover:bg-slate-800"
-    }`}
-  >
-    <Boxes size={20} />
-    Estoque
-  </button>
-
-  <button
-    onClick={() => setPaginaAtual("vendas")}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-      paginaAtual === "vendas"
-        ? "bg-cyan-500 text-slate-950 font-semibold"
-        : "text-slate-300 hover:bg-slate-800"
-    }`}
-  >
-    <ShoppingCart size={20} />
-    Vendas
-  </button>
-
-</nav>
-
-        <div className="border-t border-slate-800 pt-5">
+        <div className="border-t border-slate-800 pt-5 mt-5">
 
           <p className="text-sm font-medium">
             {usuario.nome}
@@ -284,23 +286,25 @@ useEffect(() => {
             {usuario.perfil}
           </p>
 
-      <button
-        onClick={sair}
-        className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 py-2.5 rounded-lg transition"
-        >
-        <LogOut size={18} />
-                Sair
-        </button>
+          <button
+            onClick={sair}
+            className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 py-2.5 rounded-lg transition"
+          >
+            <LogOut size={18} />
+            Sair
+          </button>
 
         </div>
 
       </aside>
 
       {/* CONTEÚDO */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 min-w-0 px-4 pb-6 pt-20 md:p-8">
 
+        {paginaAtual === "dashboard" && (
+  <>
         <div className="mb-8">
-          <h2 className="text-3xl font-bold">
+          <h2 className="text-2xl md:text-3xl font-bold">
             Dashboard
           </h2>
 
@@ -308,9 +312,6 @@ useEffect(() => {
             Bem-vindo, {usuario.nome}
           </p>
         </div>
-
-        {paginaAtual === "dashboard" && (
-  <>
 
         {!dashboard ? (
           <p className="text-slate-400">
@@ -375,7 +376,7 @@ useEffect(() => {
       </h2>
     </div>
 
-    <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-400">
+    <div className="w-12 h-12 shrink-0 rounded-xl bg-green-500/10 flex items-center justify-center text-green-400">
       <CircleDollarSign size={26} />
     </div>
 
