@@ -1,337 +1,91 @@
-# ERP Full-Stack — Sistema de Gestão Comercial
+<div align="center">
 
-Sistema web Full-Stack para gerenciamento comercial, desenvolvido com **React, TypeScript, Node.js, Express, PostgreSQL e Prisma**.
+# ERP Full-Stack
 
-O projeto implementa autenticação, gerenciamento de clientes e produtos, controle de estoque, vendas, pedidos e dashboard, além de infraestrutura com Docker, CI com GitHub Actions e deploy em nuvem.
+**Sistema de gestão comercial: clientes, produtos, estoque, vendas e dashboard, com estoque consistente sob concorrência.**
 
-## 🌐 Aplicação Online
+[![ERP Full-Stack CI](https://github.com/DeividiLuccasdev/erp-fullstack/actions/workflows/ci.yml/badge.svg)](https://github.com/DeividiLuccasdev/erp-fullstack/actions/workflows/ci.yml)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Express 5](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
+![Prisma 7](https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 
-**Frontend:**  
-https://erp-fullstack-frontend.onrender.com
+[**Aplicação online**](https://erp-fullstack-frontend.onrender.com) · [API](https://erp-fullstack-api-deividi.onrender.com) · [Portfólio](https://portfolio-deividi.vercel.app/)
 
-**API:**  
-https://erp-fullstack-api-deividi.onrender.com
+</div>
 
-> ⏳ **O primeiro acesso pode demorar de 30 a 60 segundos.** A aplicação usa o plano gratuito do Render, que "adormece" o servidor após 15 minutos sem uso. Depois que ele acorda, tudo responde normalmente.
+> Projeto de portfólio. A aplicação usa o plano gratuito do Render, que "adormece" o servidor após 15 minutos sem uso: **o primeiro acesso pode demorar de 30 a 60 segundos**. Depois que ele acorda, tudo responde normalmente.
 
-## 🚀 Tecnologias
+## Sobre
 
-### Frontend
+O ERP Full-Stack cobre o ciclo comercial de uma pequena empresa: cadastro de clientes e produtos, entrada e saída de estoque, pedidos de venda e um dashboard com os números do negócio. Frontend em React, API REST em Node.js com Express e Prisma, banco PostgreSQL.
 
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- Lucide React
-- Fetch API
+O foco está no que costuma quebrar num sistema desses em uso real: **duplo clique, retry de rede e vendas simultâneas**. O estoque nunca fica negativo, um pedido não é finalizado duas vezes e a mesma ação repetida não aplica o efeito de novo. Esses cenários são testados contra um PostgreSQL de verdade no CI.
 
-### Backend
+## Funcionalidades
 
-- Node.js
-- TypeScript
-- Express
-- API REST
-- JWT
-- bcryptjs
-- Prisma ORM
+| | |
+| --- | --- |
+| **Autenticação** | Login com e-mail e senha, JWT, senhas com hash bcrypt, perfis `ADMIN` e `OPERADOR`. Usuário desativado ou com perfil alterado perde o acesso na hora. |
+| **Clientes** | Cadastro, listagem, consulta, edição e exclusão lógica; CPF único; controle de ativos e inativos. |
+| **Produtos** | Código único, preço, estoque atual e mínimo. Produto com histórico é desativado em vez de apagado. |
+| **Estoque** | Entradas e saídas com validação de saldo, histórico de movimentações com o usuário responsável e alerta de estoque baixo. |
+| **Vendas e pedidos** | Pedido com cliente opcional, itens, subtotal e total calculados, finalização com baixa automática de estoque e cancelamento. |
+| **Dashboard** | Clientes, produtos, pedidos abertos, vendas finalizadas, cancelamentos, faturamento, estoque baixo e últimas vendas. |
+| **Controle de acesso** | Cadastro de usuários, exclusão e reativação de clientes e produtos são exclusivos do `ADMIN`. |
+| **Interface responsiva** | Menu lateral que vira gaveta no celular. |
 
-### Banco de Dados
+## Arquitetura
 
-- PostgreSQL
-- Neon PostgreSQL
-
-### DevOps e Infraestrutura
-
-- Docker
-- Docker Compose
-- GitHub Actions
-- CI/CD
-- Render
-- Git
-- GitHub
-
----
-
-## 📋 Funcionalidades
-
-### 🔐 Autenticação
-
-- Login com e-mail e senha
-- Autenticação utilizando JWT
-- Senhas armazenadas com hash usando bcrypt
-- Controle de acesso por perfil
-- Perfis `ADMIN` e `OPERADOR`
-- Rotas protegidas por middleware
-
-### 👥 Clientes
-
-- Cadastro de clientes
-- Listagem
-- Busca por ID
-- Edição
-- Exclusão lógica
-- Validação de CPF duplicado
-- Controle de clientes ativos e inativos
-
-### 📦 Produtos
-
-- Cadastro de produtos
-- Listagem
-- Consulta por ID
-- Edição
-- Exclusão
-- Código único por produto
-- Controle de preço
-- Estoque atual
-- Estoque mínimo
-
-### 📊 Estoque
-
-- Entrada de produtos
-- Saída de produtos
-- Validação de estoque disponível
-- Histórico de movimentações
-- Identificação do usuário responsável
-- Controle de produtos com estoque baixo
-- Operações utilizando transações no banco de dados
-
-### 🛒 Vendas e Pedidos
-
-- Criação de pedidos
-- Associação opcional de cliente
-- Inclusão de produtos no pedido
-- Cálculo automático de subtotal
-- Cálculo automático do total
-- Finalização da venda
-- Cancelamento de pedidos
-- Baixa automática de estoque
-- Registro automático da movimentação de estoque
-- Validação de estoque antes da finalização
-- Detalhamento completo dos pedidos
-
-### 📈 Dashboard
-
-- Total de clientes
-- Total de produtos
-- Pedidos abertos
-- Vendas finalizadas
-- Pedidos cancelados
-- Faturamento total
-- Produtos com estoque baixo
-- Últimas vendas realizadas
-
----
-
-## 🏗️ Arquitetura do Backend
-
-O backend foi refatorado para separar as responsabilidades por módulo.
-
-```text
-backend/
-├── prisma/
-│   ├── migrations/
-│   └── schema.prisma
-│
-├── src/
-│   ├── config/
-│   │   └── prisma.ts
-│   │
-│   ├── middlewares/
-│   │   └── auth.ts
-│   │
-│   ├── routes/
-│   │   ├── auth.routes.ts
-│   │   ├── clientes.routes.ts
-│   │   ├── dashboard.routes.ts
-│   │   ├── estoque.routes.ts
-│   │   ├── pedidos.routes.ts
-│   │   ├── produtos.routes.ts
-│   │   └── usuarios.routes.ts
-│   │
-│   └── server.ts
-│
-├── Dockerfile
-├── package.json
-└── tsconfig.json
+```mermaid
+flowchart LR
+    UI["Frontend<br/>React · Vite · Tailwind"] -->|"HTTPS + JWT<br/>Idempotency-Key"| API["API REST<br/>Express 5"]
+    API --> AUTH["Middleware de auth<br/>confere usuário no banco"]
+    API --> TX["Transações com retry<br/>+ chave de idempotência"]
+    TX -->|Prisma 7| PG[("PostgreSQL<br/>CHECK · índices únicos")]
+    AUTH --> PG
 ```
 
-O `server.ts` é responsável principalmente por configurar o Express, middlewares e registrar os módulos da aplicação.
+Em produção, o frontend é um Static Site no Render, a API roda como Web Service Docker no Render e o banco é um PostgreSQL no Neon. → [deploy e CI](docs/deploy.md)
 
----
+## Decisões técnicas
 
-## 🖥️ Estrutura do Frontend
+- **Baixa de estoque num único `UPDATE` condicional.** A saída só acontece se `estoque >= quantidade`, sem ler e depois escrever. Duas saídas simultâneas não passam ambas pela conferência, e não é preciso travar a tabela.
+- **Finalização trava o pedido antes de ler os itens.** O status muda de `ABERTO` para `FINALIZADO` primeiro; os itens são lidos depois, na mesma transação. Assim, finalizações repetidas recebem 409 e um item adicionado durante a finalização ou entra na baixa ou é recusado.
+- **Baixa em ordem fixa de produto.** Vendas com os mesmos produtos em ordens diferentes travam as linhas na mesma ordem e não entram em deadlock. Se o PostgreSQL ainda assim desfizer a transação por conflito, ela é repetida até 3 vezes.
+- **Idempotência gravada junto com o efeito.** O cabeçalho `Idempotency-Key` é salvo na mesma transação da operação, com índice único por usuário. Repetição devolve a resposta original; mesma chave com outro corpo responde 422; falha não consome a chave. O frontend gera uma chave por ação.
+- **Invariantes no banco, não só no código.** `CHECK` impede estoque, preço e estoque mínimo negativos e quantidades zeradas. Duplicidade de código, CPF e e-mail é decidida pelo índice único (409), inclusive em cadastros simultâneos.
+- **Saldo sempre rastreável.** O estoque inicial também vira movimentação e editar o produto não altera o saldo, então o estoque é sempre a soma das entradas menos as saídas.
+- **Perfil lido do banco a cada requisição.** O token vale 8 horas, mas desativar um usuário ou trocar o perfil tem efeito imediato.
 
-```text
-frontend/
-├── src/
-│   ├── pages/
-│   │   ├── Clientes.tsx
-│   │   ├── Estoque.tsx
-│   │   ├── Produtos.tsx
-│   │   └── Vendas.tsx
-│   │
-│   ├── api.ts
-│   ├── App.tsx
-│   ├── index.css
-│   └── main.tsx
-│
-├── Dockerfile
-├── package.json
-└── vite.config.ts
-```
+→ [concorrência e idempotência em detalhe](docs/concorrencia.md)
 
----
+## Stack
 
-## 🔌 Principais Endpoints
+| Camada | Tecnologias |
+| --- | --- |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, Lucide React, Fetch API |
+| Backend | Node.js 24, TypeScript, Express 5, JWT (jsonwebtoken), bcryptjs |
+| Dados | PostgreSQL, Prisma ORM 7 (adapter `pg`), Neon em produção |
+| Testes | Vitest, Supertest |
+| Infra | Docker, Docker Compose, Nginx (frontend), GitHub Actions, Render |
 
-### Autenticação
+## Como rodar
 
-```http
-POST /api/auth/login
-```
-
-### Usuários
-
-```http
-POST /api/usuarios   (somente ADMIN)
-GET  /api/perfil
-```
-
-### Clientes
-
-```http
-POST   /api/clientes
-GET    /api/clientes
-GET    /api/clientes/:id
-PUT    /api/clientes/:id
-DELETE /api/clientes/:id
-```
-
-### Produtos
-
-```http
-POST   /api/produtos
-GET    /api/produtos
-GET    /api/produtos/:id
-PUT    /api/produtos/:id
-DELETE /api/produtos/:id
-```
-
-### Estoque
-
-```http
-POST /api/estoque/entrada
-POST /api/estoque/saida
-GET  /api/estoque/movimentacoes
-GET  /api/estoque/baixo
-```
-
-### Pedidos
-
-```http
-POST /api/pedidos
-POST /api/pedidos/:id/itens
-POST /api/pedidos/:id/finalizar
-POST /api/pedidos/:id/cancelar
-GET  /api/pedidos
-GET  /api/pedidos/:id
-```
-
-### Dashboard
-
-```http
-GET /api/dashboard
-```
-
----
-
-## 🔒 Segurança
-
-O projeto utiliza:
-
-- JWT para autenticação
-- bcrypt para hash das senhas
-- Middleware para validação do token
-- Controle de autorização por perfil
-- Variáveis de ambiente para credenciais
-- `.env` protegido pelo `.gitignore`
-- Validações no backend antes de operações críticas
-- Transações de banco em movimentações de estoque e vendas
-- Cadastro de usuários restrito a administradores
-- Baixa de estoque e mudança de status dos pedidos protegidas contra requisições simultâneas (o estoque nunca fica negativo e um pedido não é finalizado duas vezes)
-- Usuário desativado ou com perfil alterado perde o acesso na hora, sem esperar o token expirar
-- Todo saldo de estoque fica registrado nas movimentações (o estoque inicial também); a edição do produto não altera o saldo
-- Excluir e reativar clientes ou produtos é exclusivo do ADMIN; produto com histórico é desativado em vez de apagado
-- Finalização de pedido lê os itens dentro da transação, depois de travar o pedido: um item adicionado ao mesmo tempo entra na baixa de estoque ou recebe 409
-- Baixa de estoque em ordem fixa de produto (sem deadlock entre vendas simultâneas) e repetição automática da transação em caso de conflito
-- Cabeçalho `Idempotency-Key` em `POST /api/estoque/entrada`, `/saida`, `/api/pedidos`, `/api/pedidos/:id/itens` e `/finalizar`: a mesma chave não aplica o efeito duas vezes (mesma chave com outro corpo → 422). O frontend envia uma chave por ação
-- `CHECK` no banco: estoque, estoque mínimo e preço nunca negativos; quantidades sempre maiores que zero
-- Campos únicos (código, CPF, e-mail) decididos pelo índice do banco: duplicado → 409, inclusive em cadastros simultâneos
-
-Nenhuma credencial sensível é armazenada diretamente no repositório.
-
----
-
-## ⚙️ Variáveis de Ambiente
-
-### Backend
-
-Crie:
-
-```text
-backend/.env
-```
-
-Exemplo:
-
-```env
-DATABASE_URL=sua_url_postgresql
-JWT_SECRET=seu_segredo_jwt
-```
-
-### Frontend
-
-Para utilizar uma API diferente:
-
-```env
-VITE_API_URL=http://localhost:3000
-```
-
----
-
-## 💻 Executando Localmente
-
-Clone o repositório:
+Pré-requisitos: Node.js 24 e um banco PostgreSQL. Crie `backend/.env` com `DATABASE_URL` e `JWT_SECRET` ([todas as variáveis](docs/execucao-local.md#variáveis-de-ambiente)).
 
 ```bash
 git clone https://github.com/DeividiLuccasdev/erp-fullstack.git
-cd erp-fullstack
-```
-
-### Backend
-
-```bash
-cd backend
+cd erp-fullstack/backend
 npm install
 npx prisma generate
+npx prisma migrate deploy
+npm run criar-admin -- --email voce@exemplo.com --nome "Seu Nome"
 npm run dev
 ```
 
-Crie o primeiro administrador (a senha é pedida no terminal):
-
-```bash
-npm run criar-admin -- --email voce@exemplo.com --nome "Seu Nome"
-```
-
-O mesmo comando redefine a senha e reativa um usuário que já existe, promovendo-o a `ADMIN`.
-
-Backend:
-
-```text
-http://localhost:3000
-```
-
-### Frontend
+O `criar-admin` pede a senha no terminal; não há cadastro público de usuários. API em http://localhost:3000.
 
 Em outro terminal:
 
@@ -341,136 +95,80 @@ npm install
 npm run dev
 ```
 
-Frontend:
+Frontend em http://localhost:5173. Para usar Docker Compose (frontend em `:8080`, backend em `:3000`), veja a [execução local](docs/execucao-local.md#docker).
 
-```text
-http://localhost:5173
-```
-
----
-
-## 🐳 Docker
-
-O projeto possui Dockerfiles separados para frontend e backend e um `docker-compose.yml` na raiz.
-
-Para executar:
+## Testes
 
 ```bash
-docker compose up --build
-```
-
-Serviços:
-
-```text
-Frontend: http://localhost:8080
-Backend:  http://localhost:3000
-```
-
-Para encerrar:
-
-```bash
-docker compose down
-```
-
----
-
-## 🔄 Integração Contínua
-
-O projeto utiliza **GitHub Actions**.
-
-A cada `push` ou `pull request` para a branch `main`, o workflow executa automaticamente validações do projeto.
-
-### Backend
-
-```bash
-npm ci
-npx prisma generate
-npx tsc --noEmit
+cd backend
 npx prisma migrate deploy
 npm test
 ```
 
-Os testes (vitest + supertest) rodam contra um PostgreSQL real, num serviço do próprio workflow, e cobrem os cenários de concorrência e idempotência: saídas simultâneas, finalizações duplicadas, item adicionado durante a finalização, vendas cruzadas sem deadlock e repetição com a mesma `Idempotency-Key`.
+30 testes de integração (Vitest + Supertest) chamam a API contra um PostgreSQL real. Use um banco **de teste**: os testes apagam as tabelas, e por isso só rodam se o nome do banco contiver `test` ou `ci`.
 
-Para rodar localmente, aponte `DATABASE_URL` para um banco **de teste** (o nome precisa conter `test` ou `ci`, porque os testes apagam as tabelas):
+Os cenários cobertos incluem:
 
-```bash
-npx prisma migrate deploy
-npm test
+- 10 saídas simultâneas de 1 unidade com estoque 5: exatamente 5 passam e o saldo fica 0
+- 5 finalizações simultâneas do mesmo pedido: uma 200, quatro 409, uma única baixa
+- item adicionado durante a finalização e pedidos `[A,B]` e `[B,A]` finalizados ao mesmo tempo sem deadlock
+- mesma `Idempotency-Key` repetida, enviada em paralelo, com outro corpo (422) e após falha
+- CPF e código duplicados em paralelo (409) e `CHECK` impedindo estoque negativo fora da API
+- cálculo em `Decimal` (0,10 × 3 = 0,30)
+
+O CI (GitHub Actions) valida o TypeScript, aplica as migrations e roda a suíte num serviço PostgreSQL 16 a cada push e pull request para `main`, além do build do frontend. → [detalhes do CI](docs/deploy.md#integração-contínua)
+
+## Estrutura
+
+```text
+backend/
+├── prisma/
+│   ├── migrations/       # histórico do schema, incluindo CHECKs e idempotência
+│   └── schema.prisma
+├── src/
+│   ├── config/           # cliente Prisma
+│   ├── lib/              # erros HTTP, transação com retry e idempotência
+│   ├── middlewares/      # autenticação e autorização por perfil
+│   ├── routes/           # auth, usuários, clientes, produtos, estoque, pedidos, dashboard
+│   ├── scripts/          # criar-admin
+│   ├── app.ts            # Express, rotas e tratamento de erros
+│   └── server.ts
+├── tests/                # testes de integração e helpers
+└── Dockerfile
+frontend/
+├── src/
+│   ├── pages/            # Clientes, Produtos, Estoque, Vendas
+│   ├── api.ts            # cliente HTTP e geração de Idempotency-Key
+│   └── App.tsx           # login, menu e dashboard
+└── Dockerfile            # build com Node, servido por Nginx
+docs/                     # documentação detalhada
+docker-compose.yml
 ```
 
-### Frontend
+## Documentação
 
-```bash
-npm ci
-npm run build
-```
+- [API REST](docs/api.md): todas as rotas, permissões, códigos de resposta e `Idempotency-Key`
+- [Concorrência e idempotência](docs/concorrencia.md): como cada corrida é tratada e onde está no código
+- [Execução local](docs/execucao-local.md): variáveis de ambiente, primeiro administrador e Docker
+- [Deploy e CI](docs/deploy.md): Render, Neon e GitHub Actions
 
-Isso ajuda a impedir que alterações com erros de compilação sejam integradas ao projeto.
+## Limitações conhecidas
 
----
+- O frontend não tem testes automatizados; no CI ele passa apenas pelo build.
+- As chaves de idempotência não expiram: não há rotina de limpeza da tabela `ChaveIdempotencia`.
+- O container do backend não aplica migrations ao iniciar; é preciso rodar `prisma migrate deploy` antes.
+- O CORS aceita qualquer origem.
+- Não há recuperação de senha, multiempresa nem emissão fiscal.
+- A demo no plano gratuito do Render tem a latência de primeiro acesso descrita acima.
 
-## ☁️ Deploy
+## Roadmap
 
-### Frontend
+- [ ] Testes do frontend
+- [ ] Expiração e limpeza das chaves de idempotência
+- [ ] CORS restrito à origem do frontend
+- [ ] Recuperação de senha
+- [ ] Relatórios de vendas por período
 
-Deploy como **Static Site** no Render.
+## Autor
 
-https://erp-fullstack-frontend.onrender.com
-
-### Backend
-
-Deploy como **Web Service Docker** no Render.
-
-https://erp-fullstack-api-deividi.onrender.com
-
-### Banco
-
-PostgreSQL hospedado no **Neon**.
-
----
-
-## 🧠 Conceitos Aplicados
-
-Este projeto utiliza conceitos importantes de desenvolvimento de software:
-
-- Arquitetura cliente-servidor
-- API REST
-- CRUD
-- Autenticação e autorização
-- JWT
-- Hash de senhas
-- Relacionamentos em banco de dados
-- ORM
-- Transações
-- Regras de negócio
-- Componentização
-- Estado no React
-- Consumo de APIs
-- Variáveis de ambiente
-- Containerização
-- CI/CD
-- Deploy em nuvem
-- Versionamento com Git
-
----
-
-## 📌 Status do Projeto
-
-**Concluído ✅**
-
-O sistema está funcional localmente e em produção, com frontend, backend, banco de dados, autenticação, Docker, CI e deploy configurados.
-
----
-
-## 👨‍💻 Autor
-
-**Deividi Tiago Luccas**
-
-Desenvolvedor Full-Stack
-
-GitHub:  
-https://github.com/DeividiLuccasdev
-
-LinkedIn:  
-https://www.linkedin.com/in/deividi-luccas-0ab589227
+**Deividi Tiago Luccas** · Desenvolvedor Full-Stack · [Portfólio](https://portfolio-deividi.vercel.app/) · [GitHub](https://github.com/DeividiLuccasdev) · [LinkedIn](https://www.linkedin.com/in/deividi-luccas-0ab589227)
