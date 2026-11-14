@@ -10,6 +10,10 @@ import { createInterface } from "node:readline";
 import bcrypt from "bcryptjs";
 
 import { prisma } from "../config/prisma.js";
+import {
+  ehUsuarioDemo,
+  ERRO_USUARIO_DEMO_PROTEGIDO
+} from "../lib/usuarioDemo.js";
 
 const TAMANHO_MINIMO_SENHA = 6;
 
@@ -64,6 +68,13 @@ async function main() {
 
   if (!email) {
     console.error('Informe o e-mail: npm run criar-admin -- --email voce@exemplo.com --nome "Seu Nome"');
+    rl.close();
+    process.exit(1);
+  }
+
+  // A conta de demonstração é gerida só pelo deploy (src/lib/usuarioDemo.ts)
+  if (ehUsuarioDemo(email)) {
+    console.error(ERRO_USUARIO_DEMO_PROTEGIDO);
     rl.close();
     process.exit(1);
   }

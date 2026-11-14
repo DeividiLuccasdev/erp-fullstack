@@ -21,6 +21,8 @@ GET  /api/perfil
 
 O primeiro administrador é criado pela linha de comando (`npm run criar-admin`), veja [execução local](execucao-local.md#primeiro-administrador).
 
+A conta de demonstração (`demo@example.com`) é protegida: tentar recadastrar o e-mail dela responde 403. Toda rota que altere usuários deve consultar `ehUsuarioDemo` (`src/lib/usuarioDemo.ts`) e responder 403.
+
 ## Clientes
 
 ```http
