@@ -9,6 +9,7 @@ import {
 import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
+import { responderErro } from "../lib/erros.js";
 
 const router = Router();
 
@@ -54,18 +55,8 @@ router.post(
       });
     }
 
-    const usuarioExistente = await prisma.usuario.findUnique({
-      where: {
-        email
-      }
-    });
-
-    if (usuarioExistente) {
-      return res.status(409).json({
-        erro: "Já existe um usuário com este e-mail."
-      });
-    }
-
+    // O índice único de "email" decide (P2002 → 409), sem janela entre
+    // consultar e criar
     const senhaHash = await bcrypt.hash(senha, 10);
 
     const usuario = await prisma.usuario.create({
@@ -88,10 +79,8 @@ router.post(
     return res.status(201).json(usuario);
 
   } catch (erro) {
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao cadastrar usuário."
+    return responderErro(res, erro, "Erro interno ao cadastrar usuário.", {
+      unico: "Já existe um usuário com este e-mail."
     });
   }
   }

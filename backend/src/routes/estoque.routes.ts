@@ -4,230 +4,177 @@ import { autenticarToken } from "../middlewares/auth.js";
 import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
+import { ErroHttp, responderErro } from "../lib/erros.js";
+import {
+  enviarResposta,
+  executarIdempotente,
+} from "../lib/idempotencia.js";
 
 const router = Router();
 
-class EstoqueInsuficiente extends Error {}
+// Valida o corpo comum de entrada e saída
+function lerMovimentacao(corpo: Record<string, unknown> | undefined) {
+  const { produtoId, quantidade, observacao } = corpo ?? {};
+
+  if (!produtoId || typeof produtoId !== "string" || !quantidade) {
+    throw new ErroHttp(400, "Produto e quantidade são obrigatórios.");
+  }
+
+  const quantidadeNumero = Number(quantidade);
+
+  if (
+    !Number.isInteger(quantidadeNumero) ||
+    quantidadeNumero <= 0
+  ) {
+    throw new ErroHttp(
+      400,
+      "A quantidade deve ser um número inteiro maior que zero."
+    );
+  }
+
+  return {
+    produtoId,
+    quantidade: quantidadeNumero,
+    observacao: typeof observacao === "string" && observacao
+      ? observacao
+      : null,
+  };
+}
 
 // ========================================
 // ENTRADA DE ESTOQUE
 // POST /api/estoque/entrada
+// Aceita o cabeçalho Idempotency-Key
 // ========================================
 
 router.post("/entrada", autenticarToken, async (req, res) => {
   try {
     const requisicao = req as RequestAutenticada;
+    const dados = lerMovimentacao(req.body);
 
-    if (!requisicao.usuario) {
-      return res.status(401).json({
-        erro: "Usuário não autenticado.",
-      });
-    }
-
-    const {
-      produtoId,
-      quantidade,
-      observacao,
-    } = req.body;
-
-    if (!produtoId || !quantidade) {
-      return res.status(400).json({
-        erro: "Produto e quantidade são obrigatórios.",
-      });
-    }
-
-    const quantidadeNumero = Number(quantidade);
-
-    if (
-      !Number.isInteger(quantidadeNumero) ||
-      quantidadeNumero <= 0
-    ) {
-      return res.status(400).json({
-        erro: "A quantidade deve ser um número inteiro maior que zero.",
-      });
-    }
-
-    const produto = await prisma.produto.findUnique({
-      where: {
-        id: produtoId,
-      },
-    });
-
-    if (!produto) {
-      return res.status(404).json({
-        erro: "Produto não encontrado.",
-      });
-    }
-
-    const resultado = await prisma.$transaction(async (tx) => {
+    const resposta = await executarIdempotente(requisicao, async (tx) => {
+      // increment é atômico; se o produto não existir, P2025 vira 404
       const produtoAtualizado = await tx.produto.update({
         where: {
-          id: produtoId,
+          id: dados.produtoId,
         },
         data: {
           estoque: {
-            increment: quantidadeNumero,
+            increment: dados.quantidade,
           },
         },
       });
 
       const movimentacao = await tx.movimentacaoEstoque.create({
         data: {
-          produtoId,
+          produtoId: dados.produtoId,
           usuarioId: requisicao.usuario!.usuarioId,
           tipo: "ENTRADA",
-          quantidade: quantidadeNumero,
-          observacao: observacao || null,
+          quantidade: dados.quantidade,
+          observacao: dados.observacao,
         },
       });
 
       return {
-        produtoAtualizado,
-        movimentacao,
+        status: 201,
+        corpo: {
+          mensagem: "Entrada de estoque registrada com sucesso.",
+          estoqueAtual: produtoAtualizado.estoque,
+          movimentacao,
+        },
       };
     });
 
-    return res.status(201).json({
-      mensagem: "Entrada de estoque registrada com sucesso.",
-      estoqueAtual: resultado.produtoAtualizado.estoque,
-      movimentacao: resultado.movimentacao,
-    });
+    return enviarResposta(res, resposta);
 
   } catch (erro) {
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao registrar entrada de estoque.",
-    });
+    return responderErro(
+      res,
+      erro,
+      "Erro interno ao registrar entrada de estoque.",
+      { naoEncontrado: "Produto não encontrado." }
+    );
   }
 });
 
 // ========================================
 // SAÍDA DE ESTOQUE
 // POST /api/estoque/saida
+// Aceita o cabeçalho Idempotency-Key
 // ========================================
 
 router.post("/saida", autenticarToken, async (req, res) => {
   try {
     const requisicao = req as RequestAutenticada;
+    const dados = lerMovimentacao(req.body);
 
-    if (!requisicao.usuario) {
-      return res.status(401).json({
-        erro: "Usuário não autenticado.",
-      });
-    }
-
-    const {
-      produtoId,
-      quantidade,
-      observacao,
-    } = req.body;
-
-    if (!produtoId || !quantidade) {
-      return res.status(400).json({
-        erro: "Produto e quantidade são obrigatórios.",
-      });
-    }
-
-    const quantidadeNumero = Number(quantidade);
-
-    if (
-      !Number.isInteger(quantidadeNumero) ||
-      quantidadeNumero <= 0
-    ) {
-      return res.status(400).json({
-        erro: "A quantidade deve ser um número inteiro maior que zero.",
-      });
-    }
-
-    const produto = await prisma.produto.findUnique({
-      where: {
-        id: produtoId,
-      },
-    });
-
-    if (!produto) {
-      return res.status(404).json({
-        erro: "Produto não encontrado.",
-      });
-    }
-
-    // Impede estoque negativo
-    if (produto.estoque < quantidadeNumero) {
-      return res.status(409).json({
-        erro: "Estoque insuficiente.",
-        estoqueAtual: produto.estoque,
-      });
-    }
-
-    const resultado = await prisma.$transaction(async (tx) => {
-      // Baixa só se ainda houver saldo: a conferência acima não basta
-      // quando duas saídas acontecem ao mesmo tempo
+    const resposta = await executarIdempotente(requisicao, async (tx) => {
+      // Baixa só se ainda houver saldo, num único UPDATE: duas saídas
+      // simultâneas não conseguem passar ambas pela conferência
       const baixa = await tx.produto.updateMany({
         where: {
-          id: produtoId,
+          id: dados.produtoId,
           estoque: {
-            gte: quantidadeNumero,
+            gte: dados.quantidade,
           },
         },
         data: {
           estoque: {
-            decrement: quantidadeNumero,
+            decrement: dados.quantidade,
           },
         },
       });
 
       if (baixa.count === 0) {
-        throw new EstoqueInsuficiente();
+        const atual = await tx.produto.findUnique({
+          where: {
+            id: dados.produtoId,
+          },
+        });
+
+        if (!atual) {
+          throw new ErroHttp(404, "Produto não encontrado.");
+        }
+
+        throw new ErroHttp(409, "Estoque insuficiente.", {
+          estoqueAtual: atual.estoque,
+        });
       }
 
       const produtoAtualizado = await tx.produto.findUniqueOrThrow({
         where: {
-          id: produtoId,
+          id: dados.produtoId,
         },
       });
 
       const movimentacao = await tx.movimentacaoEstoque.create({
         data: {
-          produtoId,
+          produtoId: dados.produtoId,
           usuarioId: requisicao.usuario!.usuarioId,
           tipo: "SAIDA",
-          quantidade: quantidadeNumero,
-          observacao: observacao || null,
+          quantidade: dados.quantidade,
+          observacao: dados.observacao,
         },
       });
 
       return {
-        produtoAtualizado,
-        movimentacao,
+        status: 201,
+        corpo: {
+          mensagem: "Saída de estoque registrada com sucesso.",
+          estoqueAtual: produtoAtualizado.estoque,
+          movimentacao,
+        },
       };
     });
 
-    return res.status(201).json({
-      mensagem: "Saída de estoque registrada com sucesso.",
-      estoqueAtual: resultado.produtoAtualizado.estoque,
-      movimentacao: resultado.movimentacao,
-    });
+    return enviarResposta(res, resposta);
 
   } catch (erro) {
-    if (erro instanceof EstoqueInsuficiente) {
-      const atual = await prisma.produto.findUnique({
-        where: {
-          id: req.body.produtoId,
-        },
-      });
-
-      return res.status(409).json({
-        erro: "Estoque insuficiente.",
-        estoqueAtual: atual?.estoque ?? 0,
-      });
-    }
-
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao registrar saída de estoque.",
-    });
+    return responderErro(
+      res,
+      erro,
+      "Erro interno ao registrar saída de estoque."
+    );
   }
 });
 

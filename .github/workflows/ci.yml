@@ -20,8 +20,25 @@ jobs:
       run:
         working-directory: backend
 
+    # Banco real para os testes de concorrência (locks, CHECK, índices únicos)
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: erp_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d erp_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       DATABASE_URL: postgresql://user:password@localhost:5432/erp_ci
+      JWT_SECRET: segredo-do-ci
 
     steps:
       - name: Baixar código
@@ -42,6 +59,12 @@ jobs:
 
       - name: Validar TypeScript
         run: npx tsc --noEmit
+
+      - name: Aplicar migrations
+        run: npx prisma migrate deploy
+
+      - name: Testes (vitest + supertest no PostgreSQL)
+        run: npm test
 
 
   frontend:

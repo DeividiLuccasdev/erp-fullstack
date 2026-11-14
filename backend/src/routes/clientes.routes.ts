@@ -7,6 +7,8 @@ import {
 import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
+import { responderErro } from "../lib/erros.js";
+import { Prisma } from "../../generated/prisma/client.ts";
 
 const router = Router();
 
@@ -35,23 +37,8 @@ router.post("/", autenticarToken, async (req, res) => {
       });
     }
 
-    if (cpf) {
-      const clienteExistente =
-        await prisma.cliente.findUnique({
-          where: {
-            cpf,
-          },
-        });
-
-      if (clienteExistente) {
-        return res.status(409).json({
-          erro: clienteExistente.excluidoEm
-            ? "Este CPF pertence a um cliente excluído."
-            : "Já existe um cliente com este CPF.",
-        });
-      }
-    }
-
+    // Sem consultar antes: o índice único de "cpf" decide (P2002 → 409),
+    // o que também vale para dois cadastros simultâneos
     const cliente = await prisma.cliente.create({
       data: {
         nome,
@@ -65,10 +52,25 @@ router.post("/", autenticarToken, async (req, res) => {
     return res.status(201).json(cliente);
 
   } catch (erro) {
-    console.error(erro);
+    let unico = "Já existe um cliente com este CPF.";
 
-    return res.status(500).json({
-      erro: "Erro interno ao cadastrar cliente.",
+    if (
+      erro instanceof Prisma.PrismaClientKnownRequestError &&
+      erro.code === "P2002" &&
+      req.body?.cpf
+    ) {
+      // Só para escolher a mensagem; a decisão já foi do banco
+      const existente = await prisma.cliente
+        .findUnique({ where: { cpf: req.body.cpf } })
+        .catch(() => null);
+
+      if (existente?.excluidoEm) {
+        unico = "Este CPF pertence a um cliente excluído.";
+      }
+    }
+
+    return responderErro(res, erro, "Erro interno ao cadastrar cliente.", {
+      unico,
     });
   }
 });
@@ -185,24 +187,6 @@ router.put("/:id", autenticarToken, async (req, res) => {
       });
     }
 
-    if (cpf) {
-      const clienteComCpf =
-        await prisma.cliente.findUnique({
-          where: {
-            cpf,
-          },
-        });
-
-      if (
-        clienteComCpf &&
-        clienteComCpf.id !== id
-      ) {
-        return res.status(409).json({
-          erro: "Já existe outro cliente com este CPF.",
-        });
-      }
-    }
-
     const clienteAtualizado =
       await prisma.cliente.update({
         where: {
@@ -224,10 +208,9 @@ router.put("/:id", autenticarToken, async (req, res) => {
     return res.status(200).json(clienteAtualizado);
 
   } catch (erro) {
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao atualizar cliente.",
+    return responderErro(res, erro, "Erro interno ao atualizar cliente.", {
+      unico: "Já existe outro cliente com este CPF.",
+      naoEncontrado: "Cliente não encontrado.",
     });
   }
 });
@@ -281,10 +264,8 @@ router.delete(
       });
 
     } catch (erro) {
-      console.error(erro);
-
-      return res.status(500).json({
-        erro: "Erro interno ao excluir cliente.",
+      return responderErro(res, erro, "Erro interno ao excluir cliente.", {
+        naoEncontrado: "Cliente não encontrado.",
       });
     }
   }

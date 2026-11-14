@@ -1,4 +1,4 @@
-import { API_URL } from "../api";
+import { API_URL, criarChavesIdempotencia } from "../api";
 import { useEffect, useState } from "react";
 
 type Pedido = {
@@ -72,6 +72,8 @@ type PedidoDetalhado = {
 
 
 function Vendas() {
+  // Uma Idempotency-Key por ação; reaproveitada se a ação for reenviada
+  const [chaves] = useState(criarChavesIdempotencia);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [mostrarNovaVenda, setMostrarNovaVenda] = useState(false);
   const [clienteId, setClienteId] = useState("");
@@ -176,6 +178,8 @@ async function criarVenda() {
   setCriandoVenda(true);
 
   try {
+    const chave = chaves.para(`criar-venda:${clienteId}`);
+
     const resposta = await fetch(
       `${API_URL}/api/pedidos`,
       {
@@ -183,12 +187,15 @@ async function criarVenda() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "Idempotency-Key": chave,
         },
         body: JSON.stringify({
           clienteId: clienteId || null,
         }),
       }
     );
+
+    chaves.respondeu(resposta.status);
 
     const dados = await resposta.json();
 
@@ -240,6 +247,8 @@ async function adicionarItem() {
   setAdicionandoItem(true);
 
   try {
+    const chave = chaves.para(`item:${pedidoSelecionado}:${produtoId}:${quantidade}`);
+
     const resposta = await fetch(
       `${API_URL}/api/pedidos/${pedidoSelecionado}/itens`,
       {
@@ -247,6 +256,7 @@ async function adicionarItem() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "Idempotency-Key": chave,
         },
         body: JSON.stringify({
           produtoId,
@@ -254,6 +264,8 @@ async function adicionarItem() {
         }),
       }
     );
+
+    chaves.respondeu(resposta.status);
 
     const dados = await resposta.json();
 
@@ -278,15 +290,20 @@ async function finalizarVenda(pedidoId: string) {
   setErro("");
 
   try {
+    const chave = chaves.para(`finalizar:${pedidoId}`);
+
     const resposta = await fetch(
       `${API_URL}/api/pedidos/${pedidoId}/finalizar`,
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Idempotency-Key": chave,
         },
       }
     );
+
+    chaves.respondeu(resposta.status);
 
     const dados = await resposta.json();
 

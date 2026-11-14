@@ -1,4 +1,4 @@
-import { API_URL } from "../api";
+import { API_URL, criarChavesIdempotencia } from "../api";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
@@ -35,6 +35,8 @@ type Movimentacao = {
 };
 
 function Estoque() {
+  // Uma Idempotency-Key por movimentação; reaproveitada se for reenviada
+  const [chaves] = useState(criarChavesIdempotencia);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
 
@@ -102,6 +104,8 @@ function Estoque() {
     setCarregando(true);
 
     try {
+      const chave = chaves.para(`${tipo}:${produtoId}:${quantidade}:${observacao}`);
+
       const resposta = await fetch(
         `${API_URL}/api/estoque/${tipo}`,
         {
@@ -109,6 +113,7 @@ function Estoque() {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
+            "Idempotency-Key": chave,
           },
           body: JSON.stringify({
             produtoId,
@@ -117,6 +122,8 @@ function Estoque() {
           }),
         }
       );
+
+      chaves.respondeu(resposta.status);
 
       const dados = await resposta.json();
 
