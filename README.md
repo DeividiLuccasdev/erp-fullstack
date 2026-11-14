@@ -15,6 +15,10 @@
 
 </div>
 
+> **Acesso de demonstração** · E-mail: `demo@example.com` · Senha: `Demo@2026`
+>
+> Perfil `OPERADOR`: acessa dashboard, clientes, produtos, estoque e vendas; cadastro de usuários e exclusões ficam com o `ADMIN`.
+
 > Projeto de portfólio. A aplicação usa o plano gratuito do Render, que "adormece" o servidor após 15 minutos sem uso: **o primeiro acesso pode demorar de 30 a 60 segundos**. Depois que ele acorda, tudo responde normalmente.
 
 ## Sobre
@@ -33,7 +37,7 @@ O foco está no que costuma quebrar num sistema desses em uso real: **duplo cliq
 | **Estoque** | Entradas e saídas com validação de saldo, histórico de movimentações com o usuário responsável e alerta de estoque baixo. |
 | **Vendas e pedidos** | Pedido com cliente opcional, itens, subtotal e total calculados, finalização com baixa automática de estoque e cancelamento. |
 | **Dashboard** | Clientes, produtos, pedidos abertos, vendas finalizadas, cancelamentos, faturamento, estoque baixo e últimas vendas. |
-| **Controle de acesso** | Cadastro de usuários, exclusão e reativação de clientes e produtos são exclusivos do `ADMIN`. |
+| **Controle de acesso** | Cadastro de usuários, exclusão e reativação de clientes e produtos são exclusivos do `ADMIN`. A conta de demonstração é protegida contra alterações. |
 | **Interface responsiva** | Menu lateral que vira gaveta no celular. |
 
 ## Arquitetura
@@ -105,7 +109,7 @@ npx prisma migrate deploy
 npm test
 ```
 
-30 testes de integração (Vitest + Supertest) chamam a API contra um PostgreSQL real. Use um banco **de teste**: os testes apagam as tabelas, e por isso só rodam se o nome do banco contiver `test` ou `ci`.
+36 testes de integração (Vitest + Supertest) chamam a API contra um PostgreSQL real. Use um banco **de teste**: os testes apagam as tabelas, e por isso só rodam se o nome do banco contiver `test` ou `ci`.
 
 Os cenários cobertos incluem:
 
@@ -127,7 +131,7 @@ backend/
 │   └── schema.prisma
 ├── src/
 │   ├── config/           # cliente Prisma
-│   ├── lib/              # erros HTTP, transação com retry e idempotência
+│   ├── lib/              # erros HTTP, transação com retry, idempotência e conta demo
 │   ├── middlewares/      # autenticação e autorização por perfil
 │   ├── routes/           # auth, usuários, clientes, produtos, estoque, pedidos, dashboard
 │   ├── scripts/          # criar-admin
@@ -156,10 +160,10 @@ docker-compose.yml
 
 - O frontend não tem testes automatizados; no CI ele passa apenas pelo build.
 - As chaves de idempotência não expiram: não há rotina de limpeza da tabela `ChaveIdempotencia`.
-- O container do backend não aplica migrations ao iniciar; é preciso rodar `prisma migrate deploy` antes.
 - O CORS aceita qualquer origem.
 - Não há recuperação de senha, multiempresa nem emissão fiscal.
 - A demo no plano gratuito do Render tem a latência de primeiro acesso descrita acima.
+- Os dados da demonstração são compartilhados: qualquer visitante pode alterá-los. A conta de demonstração é restaurada (ativa, perfil e senha) a cada deploy.
 
 ## Roadmap
 

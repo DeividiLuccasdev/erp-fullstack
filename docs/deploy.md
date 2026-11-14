@@ -8,6 +8,10 @@
 | Backend | Render, Web Service Docker | https://erp-fullstack-api-deividi.onrender.com |
 | Banco | PostgreSQL no Neon | |
 
+### Inicialização do backend
+
+O container roda, nesta ordem: `prisma generate`, `prisma migrate deploy` e `npm run start`. Se as migrations falharem, o servidor não sobe. Antes de escutar a porta, o servidor cria ou restaura a conta de demonstração (`demo@example.com` / `Demo@2026`, perfil `OPERADOR`), porque o Render define a variável `RENDER`; fora do Render isso só acontece com `CRIAR_USUARIO_DEMO=true`.
+
 O primeiro acesso pode demorar de 30 a 60 segundos: o plano gratuito do Render "adormece" o servidor após 15 minutos sem uso. Depois que ele acorda, tudo responde normalmente.
 
 ## Integração contínua

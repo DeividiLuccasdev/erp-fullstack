@@ -14,6 +14,7 @@
 | `DATABASE_URL` | sim | URL de conexão do PostgreSQL |
 | `JWT_SECRET` | sim | Segredo para assinar os tokens JWT |
 | `PORT` | não | Porta HTTP (padrão `3000`) |
+| `CRIAR_USUARIO_DEMO` | não | `true` cria ou restaura a conta de demonstração ao iniciar o servidor (no Render isso já acontece, pela variável `RENDER`) |
 
 ```env
 DATABASE_URL=sua_url_postgresql
@@ -53,7 +54,11 @@ Não há cadastro público de usuários. Crie o primeiro administrador pela linh
 npm run criar-admin -- --email voce@exemplo.com --nome "Seu Nome"
 ```
 
-O mesmo comando redefine a senha e reativa um usuário que já existe, promovendo-o a `ADMIN`. Os demais usuários são criados por um ADMIN em `POST /api/usuarios`.
+O mesmo comando redefine a senha e reativa um usuário que já existe, promovendo-o a `ADMIN`. Os demais usuários são criados por um ADMIN em `POST /api/usuarios`. O comando recusa o e-mail da conta de demonstração.
+
+### Conta de demonstração
+
+Com `CRIAR_USUARIO_DEMO=true` (ou no Render, que define `RENDER`), o servidor cria ou restaura, antes de aceitar conexões, o usuário `demo@example.com` (senha `Demo@2026`, perfil `OPERADOR`). A operação é um upsert: se a conta já existe, volta a ficar ativa, com o perfil e a senha originais. Sem essas variáveis nada é criado, então bancos locais e de teste ficam limpos. O código está em `src/lib/usuarioDemo.ts`.
 
 ## Frontend
 
@@ -86,6 +91,6 @@ Para encerrar:
 docker compose down
 ```
 
-O container do backend roda `prisma generate` ao iniciar, mas não aplica migrations: rode `npx prisma migrate deploy` contra o banco antes do primeiro uso.
+Ao iniciar, o container do backend roda `prisma generate` e `prisma migrate deploy`; se as migrations falharem, o servidor não sobe.
 
 O frontend é compilado dentro da imagem e o Vite embute `VITE_API_URL` no momento do build; sem ela, a interface chama `http://localhost:3000`.

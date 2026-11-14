@@ -10,6 +10,10 @@ import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
 import { responderErro } from "../lib/erros.js";
+import {
+  ehUsuarioDemo,
+  ERRO_USUARIO_DEMO_PROTEGIDO
+} from "../lib/usuarioDemo.js";
 
 const router = Router();
 
@@ -38,6 +42,14 @@ router.post(
     if (!nome || !email || !senha) {
       return res.status(400).json({
         erro: "Nome, e-mail e senha são obrigatórios."
+      });
+    }
+
+    // O e-mail da demonstração é reservado: recadastrá-lo (por exemplo
+    // com outra caixa) seria um jeito de trocar senha ou perfil da conta
+    if (ehUsuarioDemo(email)) {
+      return res.status(403).json({
+        erro: ERRO_USUARIO_DEMO_PROTEGIDO
       });
     }
 
