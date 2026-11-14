@@ -4,79 +4,86 @@ import { autenticarToken } from "../middlewares/auth.js";
 import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
+import { Prisma } from "../../generated/prisma/client.ts";
+import { ErroHttp, responderErro } from "../lib/erros.js";
+import {
+  enviarResposta,
+  executarIdempotente,
+} from "../lib/idempotencia.js";
 
 const router = Router();
 
-// Lançado dentro das transações quando o pedido já não está ABERTO
-// (por exemplo, finalizado por outra requisição ao mesmo tempo).
-class PedidoNaoAberto extends Error {}
+function lerIdPedido(idParam: unknown): string {
+  if (typeof idParam !== "string") {
+    throw new ErroHttp(400, "ID do pedido não informado.");
+  }
+
+  return idParam;
+}
 
 // ========================================
 // CRIAR PEDIDO
 // POST /api/pedidos
+// Aceita o cabeçalho Idempotency-Key
 // ========================================
 
 router.post("/", autenticarToken, async (req, res) => {
   try {
     const requisicao = req as RequestAutenticada;
+    const { clienteId } = req.body ?? {};
 
-    if (!requisicao.usuario) {
-      return res.status(401).json({
-        erro: "Usuário não autenticado.",
-      });
-    }
-
-    const { clienteId } = req.body;
-
-    if (clienteId) {
-      const cliente = await prisma.cliente.findUnique({
-        where: {
-          id: clienteId,
-        },
-      });
-
-      if (!cliente || !cliente.ativo) {
-        return res.status(404).json({
-          erro: "Cliente não encontrado.",
+    const resposta = await executarIdempotente(requisicao, async (tx) => {
+      if (clienteId) {
+        const cliente = await tx.cliente.findUnique({
+          where: {
+            id: clienteId,
+          },
         });
+
+        if (!cliente || !cliente.ativo) {
+          throw new ErroHttp(404, "Cliente não encontrado.");
+        }
       }
-    }
 
-    const pedido = await prisma.pedido.create({
-      data: {
-        clienteId: clienteId || null,
-        usuarioId: requisicao.usuario.usuarioId,
-        status: "ABERTO",
-        total: 0,
-      },
-
-      include: {
-        cliente: {
-          select: {
-            id: true,
-            nome: true,
-          },
+      const pedido = await tx.pedido.create({
+        data: {
+          clienteId: clienteId || null,
+          usuarioId: requisicao.usuario!.usuarioId,
+          status: "ABERTO",
+          total: 0,
         },
 
-        usuario: {
-          select: {
-            id: true,
-            nome: true,
+        include: {
+          cliente: {
+            select: {
+              id: true,
+              nome: true,
+            },
+          },
+
+          usuario: {
+            select: {
+              id: true,
+              nome: true,
+            },
           },
         },
-      },
+      });
+
+      return {
+        status: 201,
+        corpo: {
+          mensagem: "Pedido criado com sucesso.",
+          pedido,
+        },
+      };
     });
 
-    return res.status(201).json({
-      mensagem: "Pedido criado com sucesso.",
-      pedido,
-    });
+    return enviarResposta(res, resposta);
 
   } catch (erro) {
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao criar pedido.",
+    return responderErro(res, erro, "Erro interno ao criar pedido.", {
+      referencia: "Cliente não encontrado.",
     });
   }
 });
@@ -84,83 +91,58 @@ router.post("/", autenticarToken, async (req, res) => {
 // ========================================
 // ADICIONAR ITEM AO PEDIDO
 // POST /api/pedidos/:id/itens
+// Aceita o cabeçalho Idempotency-Key
 // ========================================
 
 router.post("/:id/itens", autenticarToken, async (req, res) => {
   try {
-    const idParam = req.params.id;
-
-    if (typeof idParam !== "string") {
-      return res.status(400).json({
-        erro: "ID do pedido não informado.",
-      });
-    }
-
-    const pedidoId: string = idParam;
+    const requisicao = req as RequestAutenticada;
+    const pedidoId = lerIdPedido(req.params.id);
 
     const {
       produtoId,
       quantidade,
-    } = req.body;
+    } = req.body ?? {};
 
     const quantidadeNumero = Number(quantidade);
 
-    if (!produtoId) {
-      return res.status(400).json({
-        erro: "Produto é obrigatório.",
-      });
+    if (!produtoId || typeof produtoId !== "string") {
+      throw new ErroHttp(400, "Produto é obrigatório.");
     }
 
     if (
       !Number.isInteger(quantidadeNumero) ||
       quantidadeNumero <= 0
     ) {
-      return res.status(400).json({
-        erro: "A quantidade deve ser um número inteiro maior que zero.",
-      });
+      throw new ErroHttp(
+        400,
+        "A quantidade deve ser um número inteiro maior que zero."
+      );
     }
 
-    const pedido = await prisma.pedido.findUnique({
-      where: {
-        id: pedidoId,
-      },
-    });
-
-    if (!pedido) {
-      return res.status(404).json({
-        erro: "Pedido não encontrado.",
+    const resposta = await executarIdempotente(requisicao, async (tx) => {
+      // Preço e "ativo" lidos dentro da transação, junto com a escrita
+      const produto = await tx.produto.findUnique({
+        where: {
+          id: produtoId,
+        },
       });
-    }
 
-    if (pedido.status !== "ABERTO") {
-      return res.status(409).json({
-        erro: "Só é possível adicionar itens a pedidos abertos.",
-      });
-    }
+      if (!produto) {
+        throw new ErroHttp(404, "Produto não encontrado.");
+      }
 
-    const produto = await prisma.produto.findUnique({
-      where: {
-        id: produtoId,
-      },
-    });
+      if (!produto.ativo) {
+        throw new ErroHttp(409, "Produto inativo.");
+      }
 
-    if (!produto) {
-      return res.status(404).json({
-        erro: "Produto não encontrado.",
-      });
-    }
+      // Decimal evita erro de arredondamento de ponto flutuante
+      const precoUnitario = produto.preco;
+      const subtotal = precoUnitario.mul(quantidadeNumero);
 
-    if (!produto.ativo) {
-      return res.status(409).json({
-        erro: "Produto inativo.",
-      });
-    }
-
-    const precoUnitario = Number(produto.preco);
-    const subtotal = precoUnitario * quantidadeNumero;
-
-    const resultado = await prisma.$transaction(async (tx) => {
-      // Soma o total só se o pedido ainda estiver aberto
+      // Soma o total só se o pedido ainda estiver ABERTO. Este UPDATE trava
+      // a linha do pedido até o commit: a finalização simultânea espera por
+      // ele (e então enxerga o item) ou já terminou (e aqui count = 0).
       const atualizacao = await tx.pedido.updateMany({
         where: {
           id: pedidoId,
@@ -174,7 +156,23 @@ router.post("/:id/itens", autenticarToken, async (req, res) => {
       });
 
       if (atualizacao.count === 0) {
-        throw new PedidoNaoAberto();
+        const existe = await tx.pedido.findUnique({
+          where: {
+            id: pedidoId,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!existe) {
+          throw new ErroHttp(404, "Pedido não encontrado.");
+        }
+
+        throw new ErroHttp(
+          409,
+          "Só é possível adicionar itens a pedidos abertos."
+        );
       }
 
       const item = await tx.itemPedido.create({
@@ -194,35 +192,30 @@ router.post("/:id/itens", autenticarToken, async (req, res) => {
       });
 
       return {
-        item,
-        pedidoAtualizado,
+        status: 201,
+        corpo: {
+          mensagem: "Item adicionado ao pedido com sucesso.",
+          item,
+          totalPedido: pedidoAtualizado.total,
+        },
       };
     });
 
-    return res.status(201).json({
-      mensagem: "Item adicionado ao pedido com sucesso.",
-      item: resultado.item,
-      totalPedido: resultado.pedidoAtualizado.total,
-    });
+    return enviarResposta(res, resposta);
 
   } catch (erro) {
-    if (erro instanceof PedidoNaoAberto) {
-      return res.status(409).json({
-        erro: "Só é possível adicionar itens a pedidos abertos.",
-      });
-    }
-
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao adicionar item ao pedido.",
-    });
+    return responderErro(
+      res,
+      erro,
+      "Erro interno ao adicionar item ao pedido."
+    );
   }
 });
 
 // ========================================
 // FINALIZAR PEDIDO
 // POST /api/pedidos/:id/finalizar
+// Aceita o cabeçalho Idempotency-Key
 // ========================================
 
 router.post(
@@ -231,59 +224,13 @@ router.post(
   async (req, res) => {
     try {
       const requisicao = req as RequestAutenticada;
+      const pedidoId = lerIdPedido(req.params.id);
 
-      if (!requisicao.usuario) {
-        return res.status(401).json({
-          erro: "Usuário não autenticado.",
-        });
-      }
-
-      const idParam = req.params.id;
-
-      if (typeof idParam !== "string") {
-        return res.status(400).json({
-          erro: "ID do pedido não informado.",
-        });
-      }
-
-      const pedidoId: string = idParam;
-
-      const pedido = await prisma.pedido.findUnique({
-        where: {
-          id: pedidoId,
-        },
-
-        include: {
-          itens: {
-            include: {
-              produto: true,
-            },
-          },
-        },
-      });
-
-      if (!pedido) {
-        return res.status(404).json({
-          erro: "Pedido não encontrado.",
-        });
-      }
-
-      if (pedido.status !== "ABERTO") {
-        return res.status(409).json({
-          erro: "Este pedido não está aberto.",
-        });
-      }
-
-      if (pedido.itens.length === 0) {
-        return res.status(409).json({
-          erro: "Não é possível finalizar um pedido sem itens.",
-        });
-      }
-
-      const resultado = await prisma.$transaction(async (tx) => {
-        // Muda o status primeiro e só se ainda estiver ABERTO: se o pedido
-        // for finalizado duas vezes ao mesmo tempo (duplo clique), a segunda
-        // transação não encontra o pedido aberto e o estoque não baixa em dobro.
+      const resposta = await executarIdempotente(requisicao, async (tx) => {
+        // Muda o status primeiro e só se ainda estiver ABERTO. O UPDATE
+        // trava a linha do pedido: duas finalizações simultâneas não baixam
+        // o estoque em dobro, e um item sendo adicionado ao mesmo tempo ou
+        // já foi gravado (e entra abaixo) ou recebe 409.
         const mudanca = await tx.pedido.updateMany({
           where: {
             id: pedidoId,
@@ -297,77 +244,125 @@ router.post(
         });
 
         if (mudanca.count === 0) {
-          throw new PedidoNaoAberto();
+          const existe = await tx.pedido.findUnique({
+            where: {
+              id: pedidoId,
+            },
+            select: {
+              id: true,
+            },
+          });
+
+          if (!existe) {
+            throw new ErroHttp(404, "Pedido não encontrado.");
+          }
+
+          throw new ErroHttp(409, "Este pedido não está aberto.");
         }
 
-        for (const item of pedido.itens) {
+        // Itens lidos DEPOIS da trava, dentro da transação: é exatamente
+        // o que ficará no pedido finalizado
+        const itens = await tx.itemPedido.findMany({
+          where: {
+            pedidoId,
+          },
+        });
+
+        if (itens.length === 0) {
+          throw new ErroHttp(
+            409,
+            "Não é possível finalizar um pedido sem itens."
+          );
+        }
+
+        // Agrupa por produto e baixa em ordem de id: duas vendas com os
+        // mesmos produtos em ordens diferentes travam as linhas na mesma
+        // ordem e não entram em deadlock
+        const quantidadePorProduto = new Map<string, number>();
+
+        for (const item of itens) {
+          quantidadePorProduto.set(
+            item.produtoId,
+            (quantidadePorProduto.get(item.produtoId) ?? 0) +
+              item.quantidade
+          );
+        }
+
+        const produtosOrdenados = [...quantidadePorProduto.keys()].sort();
+
+        for (const produtoId of produtosOrdenados) {
+          const quantidade = quantidadePorProduto.get(produtoId)!;
+
           const atualizacao = await tx.produto.updateMany({
             where: {
-              id: item.produtoId,
+              id: produtoId,
+              ativo: true,
               estoque: {
-                gte: item.quantidade,
+                gte: quantidade,
               },
             },
 
             data: {
               estoque: {
-                decrement: item.quantidade,
+                decrement: quantidade,
               },
             },
           });
 
           if (atualizacao.count === 0) {
-            throw new Error(
-              `ESTOQUE_INSUFICIENTE:${item.produto.nome}`
+            const produto = await tx.produto.findUniqueOrThrow({
+              where: {
+                id: produtoId,
+              },
+            });
+
+            throw new ErroHttp(
+              409,
+              produto.ativo
+                ? `Estoque insuficiente para o produto: ${produto.nome}.`
+                : `Produto inativo: ${produto.nome}.`
             );
           }
 
           await tx.movimentacaoEstoque.create({
             data: {
-              produtoId: item.produtoId,
+              produtoId,
               usuarioId: requisicao.usuario!.usuarioId,
               tipo: "SAIDA",
-              quantidade: item.quantidade,
+              quantidade,
               observacao: `Venda - Pedido ${pedidoId}`,
             },
           });
         }
 
-        return tx.pedido.findUniqueOrThrow({
+        // Recalcula o total a partir dos itens que de fato foram vendidos
+        const total = itens.reduce(
+          (soma, item) => soma.add(item.subtotal),
+          new Prisma.Decimal(0)
+        );
+
+        const pedido = await tx.pedido.update({
           where: {
             id: pedidoId,
           },
+          data: {
+            total,
+          },
         });
+
+        return {
+          status: 200,
+          corpo: {
+            mensagem: "Pedido finalizado com sucesso.",
+            pedido,
+          },
+        };
       });
 
-      return res.status(200).json({
-        mensagem: "Pedido finalizado com sucesso.",
-        pedido: resultado,
-      });
+      return enviarResposta(res, resposta);
 
     } catch (erro) {
-      if (erro instanceof PedidoNaoAberto) {
-        return res.status(409).json({
-          erro: "Este pedido não está aberto.",
-        });
-      }
-
-      if (
-        erro instanceof Error &&
-        erro.message.startsWith("ESTOQUE_INSUFICIENTE:")
-      ) {
-        const produto = erro.message.split(":")[1];
-
-        return res.status(409).json({
-          erro: `Estoque insuficiente para o produto: ${produto}.`,
-        });
-      }
-
-      console.error(erro);
-
-      return res.status(500).json({
-        erro: "Erro interno ao finalizar pedido.",
-      });
+      return responderErro(res, erro, "Erro interno ao finalizar pedido.");
     }
   }
 );
@@ -563,11 +558,7 @@ router.post(
       });
 
     } catch (erro) {
-      console.error(erro);
-
-      return res.status(500).json({
-        erro: "Erro interno ao cancelar pedido.",
-      });
+      return responderErro(res, erro, "Erro interno ao cancelar pedido.");
     }
   }
 );

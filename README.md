@@ -262,6 +262,11 @@ O projeto utiliza:
 - Usuário desativado ou com perfil alterado perde o acesso na hora, sem esperar o token expirar
 - Todo saldo de estoque fica registrado nas movimentações (o estoque inicial também); a edição do produto não altera o saldo
 - Excluir e reativar clientes ou produtos é exclusivo do ADMIN; produto com histórico é desativado em vez de apagado
+- Finalização de pedido lê os itens dentro da transação, depois de travar o pedido: um item adicionado ao mesmo tempo entra na baixa de estoque ou recebe 409
+- Baixa de estoque em ordem fixa de produto (sem deadlock entre vendas simultâneas) e repetição automática da transação em caso de conflito
+- Cabeçalho `Idempotency-Key` em `POST /api/estoque/entrada`, `/saida`, `/api/pedidos`, `/api/pedidos/:id/itens` e `/finalizar`: a mesma chave não aplica o efeito duas vezes (mesma chave com outro corpo → 422). O frontend envia uma chave por ação
+- `CHECK` no banco: estoque, estoque mínimo e preço nunca negativos; quantidades sempre maiores que zero
+- Campos únicos (código, CPF, e-mail) decididos pelo índice do banco: duplicado → 409, inclusive em cadastros simultâneos
 
 Nenhuma credencial sensível é armazenada diretamente no repositório.
 
@@ -381,6 +386,17 @@ A cada `push` ou `pull request` para a branch `main`, o workflow executa automat
 npm ci
 npx prisma generate
 npx tsc --noEmit
+npx prisma migrate deploy
+npm test
+```
+
+Os testes (vitest + supertest) rodam contra um PostgreSQL real, num serviço do próprio workflow, e cobrem os cenários de concorrência e idempotência: saídas simultâneas, finalizações duplicadas, item adicionado durante a finalização, vendas cruzadas sem deadlock e repetição com a mesma `Idempotency-Key`.
+
+Para rodar localmente, aponte `DATABASE_URL` para um banco **de teste** (o nome precisa conter `test` ou `ci`, porque os testes apagam as tabelas):
+
+```bash
+npx prisma migrate deploy
+npm test
 ```
 
 ### Frontend

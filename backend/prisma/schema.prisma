@@ -25,7 +25,8 @@ model Usuario {
   
 
   movimentacoesEstoque MovimentacaoEstoque[]
-    pedidos Pedido[]
+  pedidos              Pedido[]
+  chavesIdempotencia   ChaveIdempotencia[]
 }
 model Cliente {
   id           String    @id @default(cuid())
@@ -120,4 +121,21 @@ model ItemPedido {
 
   @@index([pedidoId])
   @@index([produtoId])
+}
+
+// Resposta gravada de uma requisição feita com o cabeçalho Idempotency-Key.
+// A chave é única por usuário e é gravada na mesma transação que o efeito.
+model ChaveIdempotencia {
+  id             String   @id @default(cuid())
+  usuarioId      String
+  chave          String
+  hashRequisicao String
+  statusResposta Int
+  corpoResposta  Json?
+  criadoEm       DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, chave])
+  @@index([criadoEm])
 }

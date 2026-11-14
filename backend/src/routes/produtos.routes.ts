@@ -7,6 +7,8 @@ import {
 import type { RequestAutenticada } from "../middlewares/auth.js";
 
 import { prisma } from "../config/prisma.js";
+import { responderErro } from "../lib/erros.js";
+import { Prisma } from "../../generated/prisma/client.ts";
 
 const router = Router();
 
@@ -69,16 +71,8 @@ router.post("/", autenticarToken, async (req, res) => {
       });
     }
 
-    const produtoExistente = await prisma.produto.findUnique({
-      where: { codigo },
-    });
-
-    if (produtoExistente) {
-      return res.status(409).json({
-        erro: "Já existe um produto com este código.",
-      });
-    }
-
+    // Sem consultar antes: o índice único de "codigo" decide, e a violação
+    // (P2002) vira 409 mesmo com dois cadastros simultâneos
     const estoqueInicial = Number(estoque ?? 0);
 
     const produto = await prisma.$transaction(async (tx) => {
@@ -112,10 +106,8 @@ router.post("/", autenticarToken, async (req, res) => {
     return res.status(201).json(produto);
 
   } catch (erro) {
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao cadastrar produto.",
+    return responderErro(res, erro, "Erro interno ao cadastrar produto.", {
+      unico: "Já existe um produto com este código.",
     });
   }
 });
@@ -220,20 +212,6 @@ router.put("/:id", autenticarToken, async (req, res) => {
       });
     }
 
-    const produtoComMesmoCodigo =
-      await prisma.produto.findUnique({
-        where: { codigo },
-      });
-
-    if (
-      produtoComMesmoCodigo &&
-      produtoComMesmoCodigo.id !== id
-    ) {
-      return res.status(409).json({
-        erro: "Já existe outro produto com este código.",
-      });
-    }
-
     const produtoAtualizado = await prisma.produto.update({
       where: { id },
 
@@ -258,10 +236,9 @@ router.put("/:id", autenticarToken, async (req, res) => {
     return res.status(200).json(produtoAtualizado);
 
   } catch (erro) {
-    console.error(erro);
-
-    return res.status(500).json({
-      erro: "Erro interno ao atualizar produto.",
+    return responderErro(res, erro, "Erro interno ao atualizar produto.", {
+      unico: "Já existe outro produto com este código.",
+      naoEncontrado: "Produto não encontrado.",
     });
   }
 });
@@ -281,56 +258,43 @@ router.delete(
         });
       }
 
-      const produto = await prisma.produto.findUnique({
-        where: {
-          id: idParam,
-        },
-      });
-
-      if (!produto) {
-        return res.status(404).json({
-          erro: "Produto não encontrado.",
-        });
-      }
-
-      const [movimentacoes, itens] = await Promise.all([
-        prisma.movimentacaoEstoque.count({
-          where: { produtoId: idParam },
-        }),
-        prisma.itemPedido.count({
-          where: { produtoId: idParam },
-        }),
-      ]);
-
-      // Produto com histórico não pode sumir: as movimentações e os
-      // pedidos apontam para ele. Nesse caso ele só é desativado.
-      if (movimentacoes > 0 || itens > 0) {
-        await prisma.produto.update({
-          where: { id: idParam },
-          data: { ativo: false },
+      // Tenta excluir direto: contar o histórico antes e excluir depois
+      // deixava uma janela para uma venda ou movimentação entrar no meio.
+      // As chaves estrangeiras (RESTRICT) decidem de forma atômica.
+      try {
+        await prisma.produto.delete({
+          where: {
+            id: idParam,
+          },
         });
 
         return res.status(200).json({
-          mensagem:
-            "O produto tem histórico de estoque ou vendas e foi desativado.",
+          mensagem: "Produto excluído com sucesso.",
         });
+      } catch (erro) {
+        if (
+          !(erro instanceof Prisma.PrismaClientKnownRequestError) ||
+          erro.code !== "P2003"
+        ) {
+          throw erro;
+        }
       }
 
-      await prisma.produto.delete({
-        where: {
-          id: idParam,
-        },
+      // Produto com histórico não pode sumir: as movimentações e os
+      // pedidos apontam para ele. Nesse caso ele só é desativado.
+      await prisma.produto.update({
+        where: { id: idParam },
+        data: { ativo: false },
       });
 
       return res.status(200).json({
-        mensagem: "Produto excluído com sucesso.",
+        mensagem:
+          "O produto tem histórico de estoque ou vendas e foi desativado.",
       });
 
     } catch (erro) {
-      console.error(erro);
-
-      return res.status(500).json({
-        erro: "Erro interno ao excluir produto.",
+      return responderErro(res, erro, "Erro interno ao excluir produto.", {
+        naoEncontrado: "Produto não encontrado.",
       });
     }
   }
